@@ -13,7 +13,8 @@ include exit-functions.sh
 #
 # Create temporary file and assign its path to the shell variable NAME.
 #
-# The temporary file will be automatically deleted when the shell exits.
+# The temporary file will be automatically deleted when `trigger_exit_handlers`
+# (from exit-functions.sh) is called.
 #
 # Implementation Notes:
 #   The reason all local variables in this function are prefixed with
@@ -43,7 +44,8 @@ get_temp_file() {
 #
 # Create temporary directory and assign its path to the shell variable NAME.
 #
-# The temporary directory will be automatically deleted when the shell exits.
+# The temporary directory will be automatically deleted when
+# `trigger_exit_handlers` (from exit-functions.sh) is called.
 #
 # Implementation Notes:
 #   The reason all local variables in this function are prefixed with
