@@ -133,6 +133,11 @@ struct_def() {
 #
 # Report error and exit (non-interactive) shell if there is no such structure or field.
 #
+# Note:
+#   This function can be expensive when used repeatedly to read a large number of
+#   structure fields, since a subshell is typically required to access its output.
+#   See `struct_unpack` for a more efficient alternative.
+#
 struct_get() {
   local name="${1:?missing struct name}"
   local field="${2:?missing field name}"
