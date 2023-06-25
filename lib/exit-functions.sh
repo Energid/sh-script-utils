@@ -10,7 +10,7 @@
 register_exit_handler() {
   local handler="${1:?missing command}"
 
-  ExitHandlers="${ExitHandlers:+${ExitHandlers}; }${handler}"
+  __EXIT_HANDLERS="${__EXIT_HANDLERS:+${__EXIT_HANDLERS}; }${handler}"
 }
 
 #
@@ -28,9 +28,9 @@ register_exit_handler() {
 #   run when that function returns.
 #
 enable_exit_handlers() {
-  if [ "${ExitHandlersEnabled:-0}" -eq 0 ]; then
+  if [ "${__EXIT_HANDLERS_ENABLED:-0}" -eq 0 ]; then
     echo "trap trigger_exit_handlers INT HUP QUIT TERM EXIT"
-    echo "ExitHandlersEnabled=1"
+    echo "__EXIT_HANDLERS_ENABLED=1"
   fi
 }
 
@@ -43,21 +43,21 @@ enable_exit_handlers() {
 # will be reset to their default behaviors.
 #
 trigger_exit_handlers() {
-  if [ "${ExitHandlers:-}" ]; then
+  if [ "${__EXIT_HANDLERS:-}" ]; then
     local was_set_e_on=0
     case $- in *e*) was_set_e_on=1 ;; esac
     set +e
 
-    eval "$ExitHandlers"
-    unset ExitHandlers
+    eval "$__EXIT_HANDLERS"
+    unset __EXIT_HANDLERS
 
     if [ "$was_set_e_on" -eq 1 ]; then
       set -e
     fi
   fi
 
-  if [ "${ExitHandlersEnabled:-0}" -ne 0 ]; then
+  if [ "${__EXIT_HANDLERS_ENABLED:-0}" -ne 0 ]; then
     trap - INT HUP QUIT TERM EXIT
-    unset ExitHandlersEnabled
+    unset __EXIT_HANDLERS_ENABLED
   fi
 }
