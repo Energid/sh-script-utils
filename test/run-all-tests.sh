@@ -1,7 +1,16 @@
 #!/usr/bin/env sh
 
 #
-# These tests have have been run successfully with the following shells:
+# Usage: ./run-all-tests.sh [-f FILE]... [SHELL]...
+#
+# Run all test FILEs with given SHELLs.
+# 
+# If FILEs are omitted, then all 'test-*.sh' files in the same folder
+# as this script will be executed. If SHELLs are omitted, then each
+# of the shells supported by the unit tests in the same folder as
+# this script will be used (if the shell is installed).
+#
+# The tests have have been run successfully with the following shells:
 #   - busybox 1.30.1
 #   - dash 0.5.11
 #   - bash 5.1.4
@@ -37,10 +46,24 @@ ShunitAssertBug=$(
   echo $?
 )
 
-if [ $# -gt 0 ]; then
-  TestShells="$*"
-else
-  TestShells=''
+TestFiles=''
+TestShells=''
+while [ $# -gt 0 ]; do
+  case $1 in
+    -f) TestFiles="${TestFiles:+${TestFiles} }${2:?option '-f' requires an argument}"
+        shift 2
+        ;;
+     *) TestShells="${TestShells:+${TestShells} }$1"
+        shift 1
+        ;;
+  esac
+done
+
+if [ ! "$TestFiles" ]; then
+  TestFiles=$(echo "$(dirname "$0")"/test-*.sh)
+fi
+
+if [ ! "$TestShells" ]; then
   for shell in busybox dash bash zsh mksh yash; do
     if hash "$shell" 2>/dev/null; then
       TestShells="${TestShells:+${TestShells} }$shell"
@@ -48,10 +71,7 @@ else
   done
 fi
 
-# shellcheck disable=SC2164 # chance of `cd` failing is neglible
-cd "$(dirname "$0")"
-
-for test in ./test-*.sh; do
+for test in $TestFiles; do
   for shell in $TestShells; do
     echo ''
     echo '--------------------------------'
