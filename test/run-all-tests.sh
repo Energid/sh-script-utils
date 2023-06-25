@@ -6,6 +6,7 @@
 #   - dash 0.5.11
 #   - zsh 5.8
 #   - mksh 59c
+#   - yash 2.50
 #
 # They are known to fail with 'ksh' due to its lack of support
 # for the 'local' keyword.

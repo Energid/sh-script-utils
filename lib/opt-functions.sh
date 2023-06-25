@@ -266,7 +266,8 @@ get_medium_opts() {
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  local opt_index="$1"; shift
+  # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
+  local opt_index="${1%%:*}"; shift
 
   if [ ! "${1:-}" ]; then
     echo "echo 'missing getopts output variable name' >&2"
@@ -422,7 +423,8 @@ get_long_opts() {
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  local opt_index="$1"; shift
+  # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
+  local opt_index="${1%%:*}"; shift
 
   if [ ! "${1:-}" ]; then
     echo "echo 'missing getopts output variable name' >&2"
