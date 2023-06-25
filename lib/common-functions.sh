@@ -9,6 +9,8 @@
 is_number() {
   local value="${1:?missing value}"
 
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+
   case $value in
     *[!0-9]*) false ;;
     *)         true ;;
@@ -23,6 +25,8 @@ is_number() {
 #
 is_valid_identifier() {
   local id="${1:?missing identifier}"
+
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
 
   case $id in
     [0-9]*|*[!A-Za-z0-9_]*) false ;;
@@ -48,6 +52,8 @@ replace_all() {
   : "${1:?missing variable name}"
   : "${2:?missing key string}"
   : "${3?missing replacement string}"
+
+  local extra_args=''; [ $# -eq 3 ] || : "${extra_args:?extra argument(s)}"
 
   if ! is_valid_identifier "$1"; then
     echo "'$1' is not a valid variable name" >&2
@@ -90,6 +96,8 @@ replace_all() {
 #
 escape_var() {
   : "${1:?missing variable name}"
+
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
 
   if ! is_valid_identifier "$1"; then
     echo "'$1' is not a valid variable name" >&2

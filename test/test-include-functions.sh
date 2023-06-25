@@ -8,6 +8,8 @@ test_include() {
   assertFalse 'missing argument' include
   assertFalse 'empty argument' "include ''"
 
+  assertFalse 'extra argument' "include x y"
+
   assertFalse "source include-function.sh' twice" \
     ". '$INCLUDE_ROOT/../lib/include-function.sh'"
 

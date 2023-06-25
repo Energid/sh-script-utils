@@ -47,6 +47,8 @@ fi
 include() {
   local file_path="${1:?missing file path argument}"
 
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+
   case "$file_path" in /*) ;; *)
     local root_dir
     if [ "${INCLUDE_SOURCE:-}" ]; then

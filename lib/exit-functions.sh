@@ -10,6 +10,8 @@
 register_exit_handler() {
   local handler="${1:?missing command}"
 
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+
   __EXIT_HANDLERS="${__EXIT_HANDLERS:+${__EXIT_HANDLERS}; }${handler}"
 }
 
@@ -28,6 +30,11 @@ register_exit_handler() {
 #   run when that function returns.
 #
 enable_exit_handlers() {
+  if [ $# -gt 0 ]; then
+    echo "echo \"extra argument(s)\" 2>&1"
+    echo "false"
+  fi
+
   if [ "${__EXIT_HANDLERS_ENABLED:-0}" -eq 0 ]; then
     echo "trap trigger_exit_handlers INT HUP QUIT TERM EXIT"
     echo "__EXIT_HANDLERS_ENABLED=1"
@@ -43,6 +50,8 @@ enable_exit_handlers() {
 # will be reset to their default behaviors.
 #
 trigger_exit_handlers() {
+  local extra_args=''; [ $# -eq 0 ] || : "${extra_args:?extra argument(s)}"
+
   if [ "${__EXIT_HANDLERS:-}" ]; then
     local was_set_e_on=0
     case $- in *e*) was_set_e_on=1 ;; esac

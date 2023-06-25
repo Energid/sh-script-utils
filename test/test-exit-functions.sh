@@ -8,6 +8,10 @@ test_exit_handlers() {
   assertFalse 'missing argument' register_exit_handler
   assertFalse 'empty argument' "register_exit_handler ''"
 
+  assertFalse 'extra argument (register)' "register_exit_handler ls x"
+  assertFalse 'extra argument (enable)' "eval \"\$(enable_exit_handlers x\)\""
+  assertFalse 'extra argument (trigger)' "trigger_exit_handlers x"
+
   register_exit_handler "echo yes"
   register_exit_handler "false"
   register_exit_handler "echo no"

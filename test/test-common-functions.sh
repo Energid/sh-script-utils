@@ -8,6 +8,8 @@ test_is_number() {
   assertFalse 'missing argument' is_number
   assertFalse 'empty argument' is_number
 
+  assertFalse 'extra argument' 'is_number 1 1'
+
   local ii=0
   for ii in $(seq 0 10); do
     assertTrue "$ii" "is_number $ii"
@@ -26,6 +28,8 @@ test_is_number() {
 test_is_valid_identifier() {
   assertFalse 'missing argument' is_valid_identifier
   assertFalse 'empty argument' is_valid_identifier
+
+  assertFalse 'extra argument' 'is_valid_identifier x y'
 
   assertTrue 'small letters' 'is_valid_identifier abcdefghijklmnopqrtuvwxyz'
   assertTrue 'large letters' 'is_valid_identifier ABCDEFGHIJKLMNOPQRTUVWXYZ'
@@ -54,6 +58,8 @@ test_replace_all() {
   assertFalse 'invalid variable name' "replace_all '?' x y"
 
   assertFalse 'empty key string' "replace_all var '' y"
+
+  assertFalse 'extra argument' 'replace_all w x y z'
 
   local string
 
@@ -87,6 +93,8 @@ test_escape_var() {
   assertFalse 'missing variable name' escape_var
   assertFalse 'empty variable name' "escape_var ''"
   assertFalse 'invalid variable name' "escape_var '?'"
+
+  assertFalse 'extra argument' "escape_var x y"
 
   local var=''
 

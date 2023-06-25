@@ -25,6 +25,8 @@ include exit-functions.sh
 get_temp_file() {
   local _get_temp_file_varname="${1:?missing output variable name}"
 
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+
   if ! is_valid_identifier "$_get_temp_file_varname"; then
     echo "'$_get_temp_file_varname' is not a valid identifier" >&2
     return 2
@@ -55,6 +57,8 @@ get_temp_file() {
 #
 get_temp_dir() {
   local _get_temp_dir_varname="${1:?missing output variable name}"
+
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
 
   if ! is_valid_identifier "$_get_temp_dir_varname"; then
     echo "'$_get_temp_dir_varname' is not a valid identifier" >&2

@@ -43,6 +43,8 @@ test_struct_get() {
   assertFalse 'empty field name' "struct_get abc ''"
   assertFalse 'invalid field name' "struct_get abc '?'"
 
+  assertFalse 'extra argument' "struct_get abc x y"
+
   assertFalse 'non-existent struct' "struct_get abc w"
 
   eval "$(struct_def -l abc w x=1 y='x & y' z='foo=bar')"
@@ -66,6 +68,8 @@ test_struct_set() {
   assertFalse 'empty field name' "struct_set abc '' 1"
   assertFalse 'invalid field name' "struct_set abc '?' 1"
 
+  assertFalse 'extra argument' "struct_set abc x 1 a"
+
   assertFalse 'non-existent struct' "struct_set abc x 1"
 
   eval "$(struct_def -l abc x y z)"
@@ -85,6 +89,8 @@ test_struct_exists() {
   assertFalse 'empty struct name' "struct_exists ''"
   assertFalse 'invalid struct name' "struct_exists '?'"
 
+  assertFalse 'extra argument' "struct_exists abc x"
+
   assertFalse 'struct undefined' 'struct_exists abc'
 
   eval "$(struct_def -l abc x y z)"
@@ -101,6 +107,8 @@ test_struct_has() {
 
   assertFalse 'empty field name' "struct_has abc ''"
   assertFalse 'invalid field name' "struct_has abc '?'"
+
+  assertFalse 'extra argument' "struct_has abc x 1"
 
   assertFalse 'struct undefined' 'struct_has abc x'
 
@@ -123,6 +131,8 @@ test_struct_test() {
   assertFalse 'invalid field name' "struct_test abc '?' -eq 1"
 
   assertFalse 'empty test operator' "struct_test abc x '' 1"
+
+  assertFalse 'extra argument' "struct_test abc x -eq 1 y"
 
   assertFalse 'struct undefined' 'struct_test abc x -eq 1'
 
@@ -155,6 +165,8 @@ test_struct_print() {
   assertFalse 'missing struct name' struct_print
   assertFalse 'empty struct name' "struct_print ''"
   assertFalse 'invalid struct name' "struct_print '?'"
+
+  assertFalse 'extra argument' "struct_print abc"
 
   assertFalse 'struct undefined' "struct_print abc'"
 
@@ -196,6 +208,8 @@ test_struct_undef() {
   assertFalse 'missing struct name' struct_undef
   assertFalse 'empty struct name' "struct_undef ''"
   assertFalse 'invalid struct name' "struct_undef '?'"
+
+  assertFalse 'extra argument' "struct_undef abc x"
 
   assertTrue 'struct already undefined' 'struct_undef abc'
 

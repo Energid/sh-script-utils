@@ -10,6 +10,8 @@ test_get_temp_file() {
   assertFalse "empty variable name" "get_temp_file ''"
   assertFalse "invalid variable name" "get_temp_file '?'"
 
+  assertFalse 'extra argument' "get_temp_file temp_file_path x"
+
   local temp_file_path
   assertTrue 'file generated' 'get_temp_file temp_file_path'
   get_temp_file temp_file_path
@@ -26,6 +28,8 @@ test_get_temp_dir() {
   assertFalse "missing variable name" get_temp_dir
   assertFalse "empty variable name" "get_temp_dir ''"
   assertFalse "invalid variable name" "get_temp_dir '?'"
+
+  assertFalse 'extra argument' "get_temp_dir temp_dir_path x"
 
   local temp_dir_path
   assertTrue 'dir generated' 'get_temp_dir temp_dir_path'

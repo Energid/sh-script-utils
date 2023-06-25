@@ -137,6 +137,8 @@ struct_get() {
   local name="${1:?missing struct name}"
   local field="${2:?missing field name}"
 
+  local extra_args=''; [ $# -eq 2 ] || : "${extra_args:?extra argument(s)}"
+
   local arg; for arg in "$@"; do
     if ! is_valid_identifier "$arg"; then
       echo "'$arg' is not a valid identifier" >&2
@@ -162,6 +164,8 @@ struct_set() {
   local field="${2:?missing field name}"
   local value="${3?missing field value}"
 
+  local extra_args=''; [ $# -eq 3 ] || : "${extra_args:?extra argument(s)}"
+
   local arg; for arg in "$name" "$field"; do
     if ! is_valid_identifier "$arg"; then
       echo "'$arg' is not a valid identifier" >&2
@@ -185,6 +189,8 @@ struct_set() {
 struct_exists() {
   local name="${1:?missing struct name}"
 
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+
   if ! is_valid_identifier "$name"; then
     echo "'$name' is not a valid identifier" >&2
     return 2
@@ -204,6 +210,8 @@ struct_exists() {
 struct_has() {
   local name="${1:?missing struct name}"
   local field="${2:?missing field name}"
+
+  local extra_args=''; [ $# -eq 2 ] || : "${extra_args:?extra argument(s)}"
 
   local arg; for arg in "$name" "$field"; do
     if ! is_valid_identifier "$arg"; then
@@ -241,6 +249,8 @@ struct_test() {
   local field="${2:?missing field name}"
   local op="${3:?missing test operator}"
   local value="${4?missing test value}"
+
+  local extra_args=''; [ $# -eq 4 ] || : "${extra_args:?extra argument(s)}"
 
   local arg; for arg in "$name" "$field"; do
     if ! is_valid_identifier "$arg"; then
@@ -361,6 +371,8 @@ struct_unpack() {
 struct_print() {
   local name="${1:?missing struct name}"
 
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+
   if ! is_valid_identifier "$name"; then
     echo "'$name' is not a valid identifier" >&2
     return 2
@@ -392,6 +404,8 @@ struct_print() {
 #
 struct_undef() {
   local name="${1:?missing struct name}"
+
+  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
 
   if ! is_valid_identifier "$name"; then
     echo "'$name' is not a valid identifier" >&2
