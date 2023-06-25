@@ -19,7 +19,7 @@ register_exit_handler() {
 # Usage: eval "$(enable_exit_handlers)"
 #
 # Set traps to call `trigger_exit_handlers` when the current function
-# (zsh-only) or shell exits, normally or abnormally.
+# (zsh-only) or (sub)shell exits, normally or abnormally.
 #
 # Implementation Notes:
 #   The reason the output of the function needs to be passed to `eval`,
