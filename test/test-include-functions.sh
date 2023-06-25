@@ -8,33 +8,46 @@ test_include() {
   assertFalse 'missing argument' include
   assertFalse 'empty argument' "include ''"
 
+  assertFalse "source include-function.sh' twice" \
+    ". '$INCLUDE_ROOT/../lib/include-function.sh'"
+
   local script_dir
   script_dir=$(cd -- "$(dirname "$0")"; pwd)
 
-  include "$script_dir/example-lib-1.sh"
-  assertEquals 'EXAMPLE_LIB_1_SOURCE (absolute path)' \
-    "$script_dir/example-lib-1.sh" \
-    "${EXAMPLE_LIB_1_SOURCE:-}"
-  assertEquals 'EXAMPLE_LIB_2_SOURCE (absolute path)' \
-    "$script_dir/example-lib-2.sh" \
-    "${EXAMPLE_LIB_2_SOURCE:-}"
-  assertEquals 'empty INCLUDE_SOURCE (absolute path)' \
-    '' \
-    "${INCLUDE_SOURCE:-}"
+  (
+    include "$script_dir/example-lib-1.sh"
+    assertEquals 'EXAMPLE_LIB_1_SOURCE (absolute path)' \
+      "$script_dir/example-lib-1.sh" \
+      "${EXAMPLE_LIB_1_SOURCE:-}"
+    assertEquals 'EXAMPLE_LIB_2_SOURCE (absolute path)' \
+      "$script_dir/example-lib-2.sh" \
+      "${EXAMPLE_LIB_2_SOURCE:-}"
+    assertEquals 'empty INCLUDE_SOURCE (absolute path)' \
+      '' \
+      "${INCLUDE_SOURCE:-}"
+  )
 
-  cd /
-  unset EXAMPLE_LIB_1_SOURCE EXAMPLE_LIB_2_SOURCE
-  include example-lib-1.sh
-  assertEquals 'EXAMPLE_LIB_1_SOURCE (relative path)' \
-    "$script_dir/example-lib-1.sh" \
-    "${EXAMPLE_LIB_1_SOURCE:-}"
-  assertEquals 'EXAMPLE_LIB_2_SOURCE (relative path)' \
-    "$script_dir/example-lib-2.sh" \
-    "${EXAMPLE_LIB_2_SOURCE:-}"
-  assertEquals 'empty INCLUDE_SOURCE (relative path)' \
-    '' \
-    "${INCLUDE_SOURCE:-}"
-  cd "$OLDPWD"
+  (
+    cd /
+    include example-lib-1.sh
+    assertEquals 'EXAMPLE_LIB_1_SOURCE (relative path)' \
+      "$script_dir/example-lib-1.sh" \
+      "${EXAMPLE_LIB_1_SOURCE:-}"
+    assertEquals 'EXAMPLE_LIB_2_SOURCE (relative path)' \
+      "$script_dir/example-lib-2.sh" \
+      "${EXAMPLE_LIB_2_SOURCE:-}"
+    assertEquals 'empty INCLUDE_SOURCE (relative path)' \
+      '' \
+      "${INCLUDE_SOURCE:-}"
+  )
+
+  (
+    include example-lib-1.sh
+    EXAMPLE_LIB_1_SOURCE='overwritten'
+    include example-lib-1.sh
+    assertEquals 'double inclusion prevented' \
+      'overwritten' "${EXAMPLE_LIB_1_SOURCE}"
+  )
 }
 
 if [ "${ZSH_VERSION:-}" ]; then
