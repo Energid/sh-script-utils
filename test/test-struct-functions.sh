@@ -161,22 +161,6 @@ test_struct_test() {
   assertFalse 'z == "def"' 'struct_test abc z = "def"'
 }
 
-test_struct_print() {
-  assertFalse 'missing struct name' struct_print
-  assertFalse 'empty struct name' "struct_print ''"
-  assertFalse 'invalid struct name' "struct_print '?'"
-
-  assertFalse 'extra argument' "struct_print abc"
-
-  assertFalse 'struct undefined' "struct_print abc'"
-
-  eval "$(struct_def -l abc w x=1 y='x & y' z='foo=bar')"
-
-  assertEquals 'print-out' \
-    "$(printf '%s\n%s\n%s\n%s\n' "w=''" 'x=1' "y='x & y'" "z=foo=bar")" \
-    "$(struct_print abc)"
-}
-
 test_struct_unpack() {
   assertFalse 'missing struct name' struct_unpack
   assertFalse 'missing field name' 'struct_unpack abc'
@@ -202,6 +186,22 @@ test_struct_unpack() {
   assertEquals 'create output variable (alternate name)' 'a & b' "${x:-}"
   assertEquals 'update output variable (same name)' '' "$y"
   assertEquals 'update output variable (alternate name)' '?' "$b"
+}
+
+test_struct_print() {
+  assertFalse 'missing struct name' struct_print
+  assertFalse 'empty struct name' "struct_print ''"
+  assertFalse 'invalid struct name' "struct_print '?'"
+
+  assertFalse 'extra argument' "struct_print abc"
+
+  assertFalse 'struct undefined' "struct_print abc'"
+
+  eval "$(struct_def -l abc w x=1 y='x & y' z='foo=bar')"
+
+  assertEquals 'print-out' \
+    "$(printf '%s\n%s\n%s\n%s\n' "w=''" 'x=1' "y='x & y'" "z=foo=bar")" \
+    "$(struct_print abc)"
 }
 
 test_struct_undef() {
