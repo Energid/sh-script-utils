@@ -2,8 +2,9 @@
 
 #
 # These tests have have been run successfully with the following shells:
-#   - bash 5.1.4
+#   - busybox 1.30.1
 #   - dash 0.5.11
+#   - bash 5.1.4
 #   - zsh 5.8
 #   - mksh 59c
 #   - yash 2.50
@@ -40,7 +41,7 @@ if [ $# -gt 0 ]; then
   TestShells="$*"
 else
   TestShells=''
-  for shell in dash bash zsh mksh yash; do
+  for shell in busybox dash bash zsh mksh yash; do
     if hash "$shell" 2>/dev/null; then
       TestShells="${TestShells:+${TestShells} }$shell"
     fi
@@ -57,12 +58,16 @@ for test in ./test-*.sh; do
     echo "${test#*/} ($shell)"
     echo '--------------------------------'
 
+    if [ "$shell" = busybox ]; then
+      shell='busybox sh'
+    fi
+
     if [ "$ShunitAssertBug" -eq 1 ]; then
-      { "$shell" "$test" \
+      { $shell "$test" \
         | awk '/FAIL|ASSERT/ { f=1 } { print } END { if (f) {  exit 1 } }'; } \
       || exit $?
     else
-      "$shell" "$test" || exit $?
+      $shell "$test" || exit $?
     fi
   done
 done
