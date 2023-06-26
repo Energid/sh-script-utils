@@ -12,9 +12,10 @@ test_get_temp_file() {
 
   assertFalse 'extra argument' "get_temp_file temp_file_path x"
 
+  local temp_file_status
   local temp_file_path
-  assertTrue 'file generated' 'get_temp_file temp_file_path'
-  get_temp_file temp_file_path
+  get_temp_file temp_file_path; temp_file_status=$?
+  assertEquals 'file generated' 0 "$temp_file_status"
 
   assertNotNull 'file name published' "${temp_file_path:-}"
   assertTrue 'file exists' "[ -r '${temp_file_path:-}' ]"
@@ -31,9 +32,10 @@ test_get_temp_dir() {
 
   assertFalse 'extra argument' "get_temp_dir temp_dir_path x"
 
+  local temp_dir_status
   local temp_dir_path
-  assertTrue 'dir generated' 'get_temp_dir temp_dir_path'
-  get_temp_dir temp_dir_path
+  get_temp_dir temp_dir_path; temp_dir_status=$?
+  assertEquals 'dir generated' 0 "$temp_dir_status"
 
   assertNotNull 'dir name published' "${temp_dir_path:-}"
   assertTrue 'dir exists' "[ -d '${temp_dir_path:-}' ]"
