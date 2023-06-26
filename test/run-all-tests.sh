@@ -18,7 +18,7 @@
 #   - mksh 59c
 #   - yash 2.50
 #
-# They are known to fail with 'ksh' due to its lack of support
+# They are known to fail with 'ksh93' due to its lack of support
 # for the 'local' keyword.
 #
 
