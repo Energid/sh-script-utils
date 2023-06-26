@@ -1,5 +1,4 @@
 # shellcheck shell=sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
 #
 # Usage: is_number STRING
@@ -7,11 +6,11 @@
 # Returns `0` if STRING is a valid integer; else returns `1`.
 #
 is_number() {
-  local value="${1:?missing value}"
+  : "${1:?missing value}"
 
-  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 1 ] || : "${_is_number_extra_args:?extra argument(s)}"
 
-  case $value in
+  case $1 in
     *[!0-9]*) false ;;
     *)         true ;;
   esac
@@ -24,11 +23,11 @@ is_number() {
 # else returns `1`.
 #
 is_valid_identifier() {
-  local id="${1:?missing identifier}"
+  : "${1:?missing identifier}"
 
-  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 1 ] || : "${_is_valid_id_extra_args:?extra argument(s)}"
 
-  case $id in
+  case $1 in
     [0-9]*|*[!A-Za-z0-9_]*) false ;;
     *) true ;;
   esac
@@ -42,29 +41,22 @@ is_valid_identifier() {
 # REPL may be an empty string. If VAR does not exist, it will
 # be initialized with an empty string.
 #
-# Implementation Notes:
-#   The reason all local variables in this function are prefixed with
-#   `_replace_all_` is to reduce the likelihood of one of the variables
-#   having the same name as VAR and thus preventing $VAR from being
-#   updated on function completion.
-#
 replace_all() {
   : "${1:?missing variable name}"
   : "${2:?missing key string}"
   : "${3?missing replacement string}"
 
-  local extra_args=''; [ $# -eq 3 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 3 ] || : "${_replace_all_extra_args:?extra argument(s)}"
 
   if ! is_valid_identifier "$1"; then
     echo "'$1' is not a valid variable name" >&2
     return 2
   fi
 
-  local _replace_all_result=''
-  eval "local _replace_all_right=\"\${$1:-}\""
+  eval "_replace_all_right=\"\${$1:-}\""
 
   while [ "$_replace_all_right" ]; do
-    _replace_all_left="${_replace_all_right%%$2*}"
+    _replace_all_left=${_replace_all_right%%"$2"*}
 
     if [ "$_replace_all_left" = "$_replace_all_right" ]; then
       _replace_all_result="${_replace_all_result}${_replace_all_right}"
@@ -72,10 +64,11 @@ replace_all() {
     fi
 
     _replace_all_result="${_replace_all_result}${_replace_all_left}$3"
-    _replace_all_right="${_replace_all_right#*$2}"
+    _replace_all_right=${_replace_all_right#*"$2"}
   done
 
   eval "$1=\"\${_replace_all_result}\""
+  unset _replace_all_left _replace_all_right _replace_all_result
 }
 
 #
@@ -88,27 +81,24 @@ replace_all() {
 # If VAR does not exist, it will be initialized with an empty string before
 # the function processes it.
 #
-# Implementation Notes:
-#   The reason all local variables in this function are prefixed with
-#   `_escape_var_` is to reduce the likelihood of one of the variables
-#   having the same name as VAR and thus preventing $VAR from being
-#   updated on function completion.
-#
 escape_var() {
   : "${1:?missing variable name}"
 
-  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 1 ] || : "${_escape_var_extra_args:?extra argument(s)}"
 
   if ! is_valid_identifier "$1"; then
     echo "'$1' is not a valid variable name" >&2
     return 2
   fi
 
-  eval "local _escape_var_result=\"\${$1:-}\""
+  eval "_escape_var_result=\"\${$1:-}\""
 
   # shellcheck disable=SC2154 # _escape_var_result used in `eval` statement
+  # shellcheck disable=SC2249 # default case not needed
   case $_escape_var_result in ''|*[[:punct:][:space:]]*)
+    # shellcheck disable=SC2249 # default case not needed
     case $_escape_var_result in ''|*[!-[:alnum:]^+,./:=@_]*)
+      # shellcheck disable=SC2249 # default case not needed
       case $_escape_var_result in *\'*)
         replace_all _escape_var_result "'" "'\\''"
       ;; esac
@@ -116,6 +106,8 @@ escape_var() {
       eval "$1=\"'\${_escape_var_result}'\""
     ;; esac
   ;; esac
+
+  unset _escape_var_result
 }
 
 #
@@ -124,28 +116,32 @@ escape_var() {
 # Prints each ARG quoted and/or escaped for safe usage with `eval`.
 #
 escape() {
-  local arg
-  local idx=1
+  _escape_index=1
 
-  for arg in "$@"; do
-    if [ "$idx" -gt 1 ]; then
+  for _escape_arg in "$@"; do
+    if [ "$_escape_index" -gt 1 ]; then
       printf ' '
     fi
 
-    case $arg in ''|*[[:punct:][:space:]]*)
-      case $arg in ''|*[!-[:alnum:]^+,./:=@_]*)
-        case $arg in *\'*)
-          replace_all arg "'" "'\\''"
+    # shellcheck disable=SC2249 # default case not needed
+    case $_escape_arg in ''|*[[:punct:][:space:]]*)
+      # shellcheck disable=SC2249 # default case not needed
+      case $_escape_arg in ''|*[!-[:alnum:]^+,./:=@_]*)
+        # shellcheck disable=SC2249 # default case not needed
+        case $_escape_arg in *\'*)
+          replace_all _escape_arg "'" "'\\''"
         ;; esac
 
-        printf '%s' "'$arg'"
-        idx=$((idx + 1))
+        printf '%s' "'$_escape_arg'"
+        _escape_index=$((_escape_index + 1))
 
         continue
       ;; esac
     ;; esac
 
-    printf '%s' "$arg"
-    idx=$((idx + 1))
+    printf '%s' "$_escape_arg"
+    _escape_index=$((_escape_index + 1))
   done
+
+  unset _escape_index _escape_arg
 }

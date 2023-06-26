@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
-# shellcheck disable=SC2164 # chance of `cd` failing is neglible
+# shellcheck disable=SC2164,SC2312 # chance of `cd` failing is neglible
+# shellcheck disable=SC1091 # do not follow source
 . "$(cd -- "$(dirname "$0")"; pwd)/../lib/common-functions.sh"
 
 test_is_number() {
@@ -10,19 +10,22 @@ test_is_number() {
 
   assertFalse 'extra argument' 'is_number 1 1'
 
-  local ii=0
-  for ii in $(seq 0 10); do
-    assertTrue "$ii" "is_number $ii"
+  for _test_is_number_ii in $(seq 0 10); do
+    assertTrue "$_test_is_number_ii" "is_number $_test_is_number_ii"
   done
 
-  local c=''
-  for c in \` \~ \! @ \# \$ % ^ \& \* \( \) - _ + = \{ \[ \] \} \
-           \\ \| : \; \' \" \< ',' \> . \? / \
-           a b c d e f g h i j k l m n o p q r s t u v w x y z \
-           A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+  _test_is_number_c=''
+  for _test_is_number_c in \
+    \` \~ \! @ \# \$ % ^ \& \* \( \) - _ + = \{ \[ \] \} \
+    \\ \| : \; \' \" \< ',' \> . \? / \
+    a b _test_is_number_c d e f g h i j k l m n o p q r s t u v w x y z \
+    A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
   do
-    assertFalse "non-letter: $c" "is_number '$c'"
+    assertFalse "non-letter: $_test_is_number_c" \
+      "is_number \\$_test_is_number_c"
   done
+
+  unset _test_is_number_c _test_is_number_ii
 }
 
 test_is_valid_identifier() {
@@ -36,17 +39,21 @@ test_is_valid_identifier() {
   assertTrue 'trailing numbers' 'is_valid_identifier a0123456789'
   assertTrue 'underscore' 'is_valid_identifier _'
 
-  local ii=0
-  for ii in $(seq 0 10); do
-    assertFalse "leading $ii" "is_valid_identifier $ii"
+  _test_is_valid_id_ii=0
+  for _test_is_valid_id_ii in $(seq 0 10); do
+    assertFalse "leading $_test_is_valid_id_ii" \
+      "is_valid_identifier $_test_is_valid_id_ii"
   done
 
-  local c=''
-  for c in \` \~ \! @ \# \$ % ^ \& \* \( \) - + = \{ \[ \] \} \
-           \\ \| : \; \' \" \< ',' \> . \? /
+  for _test_is_valid_id_c in \
+    \` \~ \! @ \# \$ % ^ \& \* \( \) - + = \{ \[ \] \} \
+    \\ \| : \; \' \" \< ',' \> . \? /
   do
-    assertFalse "special character: $c" "is_valid_identifier '$c'"
+    assertFalse "special character: $_test_is_valid_id_c" \
+      "is_valid_identifier \\$_test_is_valid_id_c"
   done
+
+  unset _test_is_valid_id_c _test_is_valid_id_ii
 }
 
 test_replace_all() {
@@ -61,32 +68,36 @@ test_replace_all() {
 
   assertFalse 'extra argument' 'replace_all w x y z'
 
-  local string
+  _test_replace_all_string='a.b.c.d'
+  replace_all _test_replace_all_string . -
+  assertEquals 'replace embedded characters' \
+    'a-b-c-d' "$_test_replace_all_string"
 
-  string='a.b.c.d'
-  replace_all string . -
-  assertEquals 'replace embedded characters' 'a-b-c-d' "$string"
+  _test_replace_all_string='--abcd'
+  replace_all _test_replace_all_string - +
+  assertEquals 'replace leading characters' \
+    '++abcd' "$_test_replace_all_string"
 
-  string='--abcd'
-  replace_all string - +
-  assertEquals 'replace leading characters' '++abcd' "$string"
+  _test_replace_all_string='abcd!!'
+  replace_all _test_replace_all_string '!' '?'
+  assertEquals 'replace trailing characters' \
+    'abcd??' "$_test_replace_all_string"
 
-  string='abcd!!'
-  replace_all string '!' '?'
-  assertEquals 'replace trailing characters' 'abcd??' "$string"
+  _test_replace_all_string='"Where are you going?"'
+  replace_all _test_replace_all_string '"' ''
+  assertEquals 'remove characters' \
+    'Where are you going?' "$_test_replace_all_string"
 
-  string='"Where are you going?"'
-  replace_all string '"' ''
-  assertEquals 'remove characters' 'Where are you going?' "$string"
+  _test_replace_all_string='little red dog with red ball'
+  replace_all _test_replace_all_string 'red' 'blue'
+  assertEquals 'replace substring' \
+    'little blue dog with blue ball' "$_test_replace_all_string"
 
-  string='little red dog with red ball'
-  replace_all string 'red' 'blue'
-  assertEquals 'replace substring' 'little blue dog with blue ball' "$string"
+  replace_all _test_replace_all_string2 'x' 'y'
+  assertEquals 'non-existent variable' \
+    '' "${_test_replace_all_string2-foobar}"
 
-  unset string2
-  replace_all string2 'x' 'y'
-  assertEquals 'non-existent variable' '' "${string2-foobar}"
-  unset string2
+  unset _test_replace_all_string _test_replace_all_string2
 }
 
 test_escape_var() {
@@ -96,43 +107,48 @@ test_escape_var() {
 
   assertFalse 'extra argument' "escape_var x y"
 
-  local var=''
+  _test_escape_var_var='abcdefghijklmnopqrtuvwxyz'
+  escape_var _test_escape_var_var
+  assertEquals 'small letters' \
+    'abcdefghijklmnopqrtuvwxyz' "$_test_escape_var_var"
 
-  var='abcdefghijklmnopqrtuvwxyz'
-  escape_var var
-  assertEquals 'small letters' 'abcdefghijklmnopqrtuvwxyz' "$var"
+  _test_escape_var_var='ABCDEFGHIJKLMNOPQRTUVWXYZ'
+  escape_var _test_escape_var_var
+  assertEquals 'large letters' \
+    'ABCDEFGHIJKLMNOPQRTUVWXYZ' "$_test_escape_var_var"
 
-  var='ABCDEFGHIJKLMNOPQRTUVWXYZ'
-  escape_var var
-  assertEquals 'large letters' 'ABCDEFGHIJKLMNOPQRTUVWXYZ' "$var"
+  _test_escape_var_var='0123456789'
+  escape_var _test_escape_var_var
+  assertEquals 'numbers' \
+    '0123456789' "$_test_escape_var_var"
 
-  var='0123456789'
-  escape_var var
-  assertEquals 'numbers' '0123456789' "$var"
+  _test_escape_var_var='^-+,./:=@_'
+  escape_var _test_escape_var_var
+  assertEquals 'non-special characters' \
+    '^-+,./:=@_' "$_test_escape_var_var"
 
-  var='^-+,./:=@_'
-  escape_var var
-  assertEquals 'non-special characters' '^-+,./:=@_' "$var"
+  _test_escape_var_var=''
+  escape_var _test_escape_var_var
+  assertEquals 'empty string' \
+    "''" "$_test_escape_var_var"
 
-  var=''
-  escape_var var
-  assertEquals 'empty string' "''" "$var"
-
-  local c=''
-  for c in \` \~ \! \# \$ % \& \* \( \) \{ \[ \] \} \\ \| \; \" \< \> \?; do
-    var=$c
-    escape_var var
-    assertEquals "special character: $c" "'$c'" "$var"
+  for _test_escape_var_c in \
+    \` \~ \! \# \$ % \& \* \( \) \{ \[ \] \} \\ \| \; \" \< \> \?
+  do
+    _test_escape_var_var=$_test_escape_var_c
+    escape_var _test_escape_var_var
+    assertEquals "special character: $_test_escape_var_c" \
+      "'$_test_escape_var_c'" "$_test_escape_var_var"
   done
 
-  var="'"
-  escape_var var
-  assertEquals "single quote" "''\\'''" "$var"
+  _test_escape_var_var="'"
+  escape_var _test_escape_var_var
+  assertEquals "single quote" "''\\'''" "$_test_escape_var_var"
 
-  unset var2
-  escape_var var2
-  assertEquals 'non-existent variable' "''" "${var2:-}"
-  unset var2
+  escape_var _test_escape_var_var2
+  assertEquals 'non-existent variable' "''" "${_test_escape_var_var2:-}"
+
+  unset _test_escape_var_var _test_escape_var_c _test_escape_var_var2
 }
 
 test_escape() {
@@ -145,15 +161,19 @@ test_escape() {
 
   assertEquals 'empty string' "''" "$(escape '')"
 
-  local c=''
-  for c in \` \~ \! \# \$ % \& \* \( \) \{ \[ \] \} \\ \| \; \" \< \> \?; do
-    assertEquals "special character: $c" "'$c'" "$(escape "$c")"
+  for _test_escape_c in \
+    \` \~ \! \# \$ % \& \* \( \) \{ \[ \] \} \\ \| \; \" \< \> \?
+  do
+    assertEquals "special character: $_test_escape_c" \
+      "'$_test_escape_c'" "$(escape "$_test_escape_c")"
   done
 
   assertEquals "single quote" "''\\'''" "$(escape "'")"
 
   assertEquals "multiple args" "'How'\\''re' you 'today?'" \
                                "$(escape "How're" you 'today?')"
+
+  unset _test_escape_c
 }
 
 if [ "${ZSH_VERSION:-}" ]; then
