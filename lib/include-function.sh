@@ -1,5 +1,4 @@
 # shellcheck shell=sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
 # prevent file from being sourced twice to ensure INCLUDE_ROOT is not redefined
 if [ "${INCLUDE_ROOT:-}" ]; then
@@ -45,33 +44,39 @@ fi
 #          resolved incorrectly.
 #
 include() {
-  local file_path="${1:?missing file path argument}"
+  : "${1:?missing file path argument}"
 
-  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 1 ] || : "${_include_extra_args:?extra argument(s)}"
 
-  case "$file_path" in /*) ;; *)
-    local root_dir
-    if [ "${INCLUDE_SOURCE:-}" ]; then
-      root_dir=$(dirname "$INCLUDE_SOURCE")
-    else
-      root_dir=$INCLUDE_ROOT
-    fi
+  case "$1" in
+    /*) INCLUDE_SOURCE=$1
+        ;;
 
-    file_path="$root_dir/$file_path"
+     *) if [ "${INCLUDE_SOURCE:-}" ]; then
+          INCLUDE_SOURCE="$(dirname "$INCLUDE_SOURCE")/$1"
+        else
+          INCLUDE_SOURCE="$INCLUDE_ROOT/$1"
+        fi
+        ;;
+  esac
+
+  __INCLUDE_STACK="${__INCLUDE_STACK:-}:$INCLUDE_SOURCE"
+
+  # only include file if it has not been already
+  case ":${__INCLUDED_FILES:-}:" in *:$INCLUDE_SOURCE:*) ;; *)
+    __INCLUDED_FILES="${__INCLUDED_FILES:+$__INCLUDED_FILES:}$INCLUDE_SOURCE"
+
+    # shellcheck disable=SC1090
+    . "$INCLUDE_SOURCE"
   ;; esac
 
-  # return early if file has already been included
-  # shellcheck disable=SC2249 # default case not needed
-  case ":${__INCLUDED_FILES:-}:" in *:$file_path:*)
-    return 0
-  ;; esac
-
-  local INCLUDE_SOURCE="$file_path"
-
-  # shellcheck disable=SC1090
-  . "$file_path"
-
-  __INCLUDED_FILES="${__INCLUDED_FILES:+$__INCLUDED_FILES:}$file_path"
+  __INCLUDE_STACK=${__INCLUDE_STACK%:*}
+  if [ "$__INCLUDE_STACK" ]; then
+    INCLUDE_SOURCE=${__INCLUDE_STACK##*:}
+  else
+    unset __INCLUDE_STACK
+    unset INCLUDE_SOURCE
+  fi
 }
 
 # initialize INCLUDE_ROOT variable

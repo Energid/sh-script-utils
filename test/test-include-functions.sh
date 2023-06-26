@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
-# shellcheck disable=SC2164 # chance of `cd` failing is neglible
+# shellcheck disable=SC2164,SC2312 # chance of `cd` failing is neglible
+# shellcheck disable=SC1091 # do not follow source
 . "$(cd -- "$(dirname "$0")"; pwd)/../lib/include-function.sh"
 
 test_include() {
@@ -10,19 +10,19 @@ test_include() {
 
   assertFalse 'extra argument' "include x y"
 
+  # shellcheck disable=SC2154 # INCLUDE_ROOT set by include-function.sh
   assertFalse "source include-function.sh' twice" \
     ". '$INCLUDE_ROOT/../lib/include-function.sh'"
 
-  local script_dir
-  script_dir=$(cd -- "$(dirname "${ZSH_ARGZERO:-$0}")"; pwd)
+  _test_include_script_dir=$(cd -- "$(dirname "${ZSH_ARGZERO:-$0}")"; pwd)
 
   (
-    include "$script_dir/example-lib-1.sh"
+    include "$_test_include_script_dir/example-lib-1.sh"
     assertEquals 'EXAMPLE_LIB_1_SOURCE (absolute path)' \
-      "$script_dir/example-lib-1.sh" \
+      "$_test_include_script_dir/example-lib-1.sh" \
       "${EXAMPLE_LIB_1_SOURCE:-}"
     assertEquals 'EXAMPLE_LIB_2_SOURCE (absolute path)' \
-      "$script_dir/example-lib-2.sh" \
+      "$_test_include_script_dir/example-lib-2.sh" \
       "${EXAMPLE_LIB_2_SOURCE:-}"
     assertEquals 'empty INCLUDE_SOURCE (absolute path)' \
       '' \
@@ -33,10 +33,10 @@ test_include() {
     cd /
     include example-lib-1.sh
     assertEquals 'EXAMPLE_LIB_1_SOURCE (relative path)' \
-      "$script_dir/example-lib-1.sh" \
+      "$_test_include_script_dir/example-lib-1.sh" \
       "${EXAMPLE_LIB_1_SOURCE:-}"
     assertEquals 'EXAMPLE_LIB_2_SOURCE (relative path)' \
-      "$script_dir/example-lib-2.sh" \
+      "$_test_include_script_dir/example-lib-2.sh" \
       "${EXAMPLE_LIB_2_SOURCE:-}"
     assertEquals 'empty INCLUDE_SOURCE (relative path)' \
       '' \
@@ -50,6 +50,8 @@ test_include() {
     assertEquals 'double inclusion prevented' \
       'overwritten' "${EXAMPLE_LIB_1_SOURCE}"
   )
+
+  unset _test_include_script_dir
 }
 
 if [ "${ZSH_VERSION:-}" ]; then
