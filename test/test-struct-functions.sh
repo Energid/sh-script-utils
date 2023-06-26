@@ -161,6 +161,33 @@ test_struct_test() {
   assertFalse 'z == "def"' 'struct_test abc z = "def"'
 }
 
+test_struct_pack() {
+  assertFalse 'missing struct name' struct_pack
+  assertFalse 'missing field name' 'struct_pack abc'
+
+  assertFalse 'empty struct name' "struct_pack '' x"
+  assertFalse 'invalid struct name' "struct_pack '?' x"
+
+  assertFalse 'empty field name' "struct_pack abc ''"
+  assertFalse 'invalid field name' "struct_pack abc' '?'"
+
+  assertFalse 'missing field value' "struct_pack abc x"
+
+  assertFalse 'non-existent struct' "struct_pack abc x=1"
+
+  eval "$(struct_def -l abc w=1 x='a & b' y='' z='?')"
+
+  assertFalse 'non-existent field' "struct_pack abc v=2"
+
+  assertTrue 'pack values' "struct_pack abc w= x=1 y='foo & bar' z='a=b'"
+
+  struct_pack abc w= x=1 y='foo & bar' z='a=b'
+  assertEquals 'w updated' '' "$(struct_get abc w)"
+  assertEquals 'x updated' '1' "$(struct_get abc x)"
+  assertEquals 'y updated' 'foo & bar' "$(struct_get abc y)"
+  assertEquals 'z updated' 'a=b' "$(struct_get abc z)"
+}
+
 test_struct_unpack() {
   assertFalse 'missing struct name' struct_unpack
   assertFalse 'missing field name' 'struct_unpack abc'

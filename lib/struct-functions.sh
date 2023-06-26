@@ -164,6 +164,10 @@ struct_get() {
 #
 # Report error and exit (non-interactive) shell if there is no such structure or field.
 #
+# Note:
+#   See `struct_pack` for a more convenient alternative for assigning multiple 
+#   structure fields at once.
+#
 struct_set() {
   local name="${1:?missing struct name}"
   local field="${2:?missing field name}"
@@ -270,6 +274,74 @@ struct_test() {
 
   # shellcheck disable=SC2154 # actual_value set by `eval` above
   test "$actual_value" "$op" "$value"
+}
+
+#
+# Usage: struct_pack STRUCT_NAME FIELD_NAME=VALUE...
+#
+# Assign VALUEs to fields with FIELD_NAMEs in structure with STRUCT_NAME.
+#
+# Report error and exit (non-interactive) shell if no structure with STRUCT_NAME
+# exists or if any FIELD_NAME does not correspond to a field name in the structure.
+#
+# Example:
+#   eval "$(struct_def vec x y z)"
+#
+#   # will print 'x=1, y=2, z=3'
+#   struct_pack vec x=1 y=2 z=3
+#   echo "x=$(struct_get vec x), y=$(struct_get vec y), z=$(struct_get z)"
+#
+struct_pack() {
+  local name="${1:?missing struct name}"; shift
+
+  if [ $# -eq 0 ]; then
+    echo "missing field name(s)" >&2
+    return 2
+  fi
+
+  if ! is_valid_identifier "$name"; then
+    echo "'$name' is not a valid struct name" >&2
+    return 2
+  fi
+
+  local field=''
+  local field_name=''
+
+  for field in "$@"; do
+    field_name=${field%%=*}
+    if ! is_valid_identifier "$field_name"; then
+      echo "'$field_name' is not a valid field name" >&2
+      return 2
+    fi
+
+    case $field in *=*) ;; *)
+      echo "missing value for '$field_name' field" >&2
+      return 2
+    ;; esac
+  done
+
+  eval "local field_list=\"\${struct_$name:-}\""
+  if [ ! "$field_list" ]; then
+    echo "there is no struct named '$name'" >&2
+    return 2
+  fi
+
+  for field in "$@"; do
+    field_name=${field%%=*}
+    case " $field_list " in *" $field_name "*) ;; *)
+      echo "no '$field_name' field exists in struct '$name'" >&2
+      return 2
+    ;; esac
+  done
+
+  local field_value=''
+
+  for field in "$@"; do
+    field_name=${field%%=*}
+    field_value=${field#*=}
+
+    eval "struct_${name}_$field_name=\"\$field_value\""
+  done
 }
 
 #
