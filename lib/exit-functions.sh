@@ -36,7 +36,8 @@ enable_exit_handlers() {
   fi
 
   if [ "${__EXIT_HANDLERS_ENABLED:-0}" -eq 0 ]; then
-    echo "trap trigger_exit_handlers INT HUP QUIT TERM EXIT"
+    echo "trap trigger_exit_handlers EXIT"
+    echo "trap 'exit \$?' INT HUP QUIT TERM"
     echo "__EXIT_HANDLERS_ENABLED=1"
   fi
 }
