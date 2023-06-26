@@ -28,7 +28,7 @@ test_exit_handlers() {
                '' "$(trigger_exit_handlers)"
 
   local script_dir
-  script_dir=$(cd -- "$(dirname "$0")"; pwd)
+  script_dir=$(cd -- "$(dirname "${ZSH_ARGZERO:-$0}")"; pwd)
 
   assertEquals 'auto triggering' \
     'foo' \
