@@ -14,7 +14,7 @@ test_include() {
     ". '$INCLUDE_ROOT/../lib/include-function.sh'"
 
   local script_dir
-  script_dir=$(cd -- "$(dirname "$0")"; pwd)
+  script_dir=$(cd -- "$(dirname "${ZSH_ARGZERO:-$0}")"; pwd)
 
   (
     include "$script_dir/example-lib-1.sh"
