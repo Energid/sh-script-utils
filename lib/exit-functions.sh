@@ -1,5 +1,4 @@
 # shellcheck shell=sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
 #
 # Usage: register_exit_handler COMMAND_LINE
@@ -8,11 +7,11 @@
 # `trigger_exit_handlers` is next called.
 #
 register_exit_handler() {
-  local handler="${1:?missing command}"
+  : "${1:?missing command}"
 
-  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 1 ] || : "${_register_exit_handler_extra_args:?extra argument(s)}"
 
-  __EXIT_HANDLERS="${__EXIT_HANDLERS:+${__EXIT_HANDLERS}; }${handler}"
+  __EXIT_HANDLERS="${__EXIT_HANDLERS:+${__EXIT_HANDLERS}; }$1"
 }
 
 #
@@ -51,19 +50,20 @@ enable_exit_handlers() {
 # will be reset to their default behaviors.
 #
 trigger_exit_handlers() {
-  local extra_args=''; [ $# -eq 0 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 0 ] || : "${_trigger_exit_handlers_extra_args:?extra argument(s)}"
 
   if [ "${__EXIT_HANDLERS:-}" ]; then
-    local was_set_e_on=0
-    case $- in *e*) was_set_e_on=1 ;; esac
+    case $- in
+      *e*) _trigger_exit_handlers_had_errexit=1 ;;
+        *) _trigger_exit_handlers_had_errexit=0 ;;
+    esac
     set +e
 
     eval "$__EXIT_HANDLERS"
     unset __EXIT_HANDLERS
 
-    if [ "$was_set_e_on" -eq 1 ]; then
-      set -e
-    fi
+    [ "$_trigger_exit_handlers_had_errexit" -eq 0 ] || set -e
+    unset _trigger_exit_handlers_had_errexit
   fi
 
   if [ "${__EXIT_HANDLERS_ENABLED:-0}" -ne 0 ]; then
