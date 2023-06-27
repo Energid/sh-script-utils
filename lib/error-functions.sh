@@ -1,5 +1,4 @@
 # shellcheck shell=sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
 # --------------------------------------------------------------------------------
 # WARNING: This file must be loaded using `include` (from 'include-function.sh').
@@ -35,33 +34,36 @@ include common-functions.sh
 #   check_file_path /non/existent/path || exit $?
 #
 error() {
-  local user_error=0
+  _error_user_error=0
   if [ "${1:-}" = '-u' ]; then
-    user_error=1; shift
+    _error_user_error=1; shift
   fi
 
   if [ ! "${1:-}" ]; then
+    unset _error_user_error
+
     echo "missing error message" >&2
     return 2
   fi
-  local msg="$*"
 
-  local source="${SCRIPT_NAME:-}"
-  if [ ! "$source" ] && file -- "${ZSH_ARGZERO:-$0}" | grep -q 'text'; then
-    source=${ZSH_ARGZERO:-$0}
-    source=${source##*/}
+  _error_source="${SCRIPT_NAME:-}"
+  if [ ! "$_error_source" ] && file -- "${ZSH_ARGZERO:-$0}" | grep -q 'text'; then
+    _error_source=${ZSH_ARGZERO:-$0}
+    _error_source=${_error_source##*/}
   fi
 
-  echo "${source:-error}: $msg" >&2
+  echo "${_error_source:-error}: $*" >&2
 
-  local exit_code=1
-  if [ "$user_error" -eq 1 ]; then
-    if [ "$source" ]; then
-      echo "Try '$source -h' for more information." >&2
+  _error_exit_code=1
+  if [ "$_error_user_error" -eq 1 ]; then
+    if [ "$_error_source" ]; then
+      echo "Try '$_error_source -h' for more information." >&2
     fi
 
-    exit_code=2
+    _error_exit_code=2
   fi
 
-  echo "$exit_code"
+  echo "$_error_exit_code"
+ 
+  unset _error_user_error _error_source _error_exit_code
 }
