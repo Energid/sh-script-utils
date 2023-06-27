@@ -1,5 +1,4 @@
 # shellcheck shell=sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
 # --------------------------------------------------------------------------------
 # WARNING: This file must be loaded using `include` (from 'include-function.sh').
@@ -67,10 +66,20 @@ include common-functions.sh
 #   works properly.
 #
 struct_def() {
-  local scope=''
+  if [ ! "${_struct_def_recursed:-}" ]; then
+    _struct_def_recursed=1
+    struct_def "$@"
+    eval unset _struct_def_recursed \
+               _struct_def_scope _struct_def_name _struct_def_field \
+               _struct_def_field_name _struct_def_field_value \
+               _struct_def_field_list \; return $?
+  fi
+
+  _struct_def_scope=''
+  # shellcheck disable=SC2249 # default case not needed
   case ${1:-} in
-    -l) scope='local';  shift ;;
-    -x) scope='export'; shift ;;
+    -l) _struct_def_scope='local';  shift ;;
+    -x) _struct_def_scope='export'; shift ;;
   esac
 
   if [ $# -eq 0 ]; then
@@ -78,51 +87,48 @@ struct_def() {
     echo "false"; return
   fi
 
-  local name="$1"; shift
-  if ! is_valid_identifier "$name"; then
-    echo "echo \"'$name' is not a valid struct name\" >&2"
+  if ! is_valid_identifier "$1"; then
+    echo "echo \"'$1' is not a valid struct name\" >&2"
     echo "false"; return
   fi
+  _struct_def_name=$1; shift
 
   if [ $# -eq 0 ]; then
     echo "echo 'missing field name(s)' >&2"
     echo "false"; return
   fi
 
-  local field=''
-  local field_name=''
-  local field_value=''
-  local field_list=''
+  _struct_def_field_list=''
 
-  for field in "$@"; do
-    field_name=${field%%=*}
-    if ! is_valid_identifier "$field_name"; then
-      echo "echo \"'$field_name' is not a valid field name\" >&2"
+  for _struct_def_field in "$@"; do
+    _struct_def_field_name=${_struct_def_field%%=*}
+    if ! is_valid_identifier "$_struct_def_field_name"; then
+      echo "echo \"'$_struct_def_field_name' is not a valid field name\" >&2"
       echo "false"; return
     else
-      field_list="${field_list:+$field_list }$field_name"
+      _struct_def_field_list="${_struct_def_field_list:+$_struct_def_field_list }$_struct_def_field_name"
     fi
   done
 
-  if eval "[ \"\${struct_$name:-}\" ]"; then
-    echo "echo \"the struct '$name' already exists\" >&2"
+  if eval "[ \"\${struct_$_struct_def_name:-}\" ]"; then
+    echo "echo \"the struct '$_struct_def_name' already exists\" >&2"
     echo "false"; return
   fi
 
   # store field names in 'struct_$name' variable;
   # this variable is also used to test for the structure's existence
-  echo "${scope:+$scope }struct_$name='$field_list'"
+  echo "${_struct_def_scope:+$_struct_def_scope }struct_${_struct_def_name}='$_struct_def_field_list'"
 
-  # create 'struct_$name_$field' variable for each field
-  for field in "$@"; do
-    field_name=${field%%=*}
-    case $field in
-      *=*) field_value=${field#*=} ;;
-      *)   field_value=''          ;;
+  # create 'struct_${name}_${field}' variable for each field
+  for _struct_def_field in "$@"; do
+    _struct_def_field_name=${_struct_def_field%%=*}
+    case $_struct_def_field in
+      *=*) _struct_def_field_value=${_struct_def_field#*=} ;;
+      *)   _struct_def_field_value=''          ;;
     esac
 
-    escape_var field_value
-    echo "${scope:+$scope }struct_${name}_${field_name}=$field_value"
+    escape_var _struct_def_field_value
+    echo "${_struct_def_scope:+$_struct_def_scope }struct_${_struct_def_name}_${_struct_def_field_name}=$_struct_def_field_value"
   done
 }
 
@@ -139,22 +145,22 @@ struct_def() {
 #   See `struct_unpack` for a more efficient alternative.
 #
 struct_get() {
-  local name="${1:?missing struct name}"
-  local field="${2:?missing field name}"
+  : "${1:?missing struct name}"
+  : "${2:?missing field name}"
 
-  local extra_args=''; [ $# -eq 2 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 2 ] || : "${_struct_get_extra_args:?extra argument(s)}"
 
-  local arg; for arg in "$@"; do
-    if ! is_valid_identifier "$arg"; then
-      echo "'$arg' is not a valid identifier" >&2
+  for _struct_get_arg in "$@"; do
+    if ! is_valid_identifier "$_struct_get_arg"; then
+      unset _struct_get_arg
+      echo "'$_struct_get_arg' is not a valid identifier" >&2
       return 2
     fi
   done
+  unset _struct_get_arg
 
-  local error_msg="no struct exists with name \\'$name\\' and field \\'$field\\'"
-
-  # read 'struct_$name_$field' variable
-  eval "echo \"\${struct_${name}_$field?$error_msg}\""
+  # read 'struct_${name}_${field}' variable
+  eval "echo \"\${struct_${1}_$2?no struct exists with name '$1' and field '$2'}\""
 }
 
 #
@@ -169,25 +175,27 @@ struct_get() {
 #   structure fields at once.
 #
 struct_set() {
-  local name="${1:?missing struct name}"
-  local field="${2:?missing field name}"
-  local value="${3?missing field value}"
+  : "${1:?missing struct name}"
+  : "${2:?missing field name}"
+  : "${3?missing field value}"
 
-  local extra_args=''; [ $# -eq 3 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 3 ] || : "${_struct_set_extra_args:?extra argument(s)}"
 
-  local arg; for arg in "$name" "$field"; do
-    if ! is_valid_identifier "$arg"; then
-      echo "'$arg' is not a valid identifier" >&2
+  for _struct_set_arg in "$1" "$2"; do
+    if ! is_valid_identifier "$_struct_set_arg"; then
+      unset _struct_set_arg
+      echo "'$_struct_set_arg' is not a valid identifier" >&2
       return 2
     fi
   done
+  unset _struct_set_arg
 
-  # assert 'struct_$name_$field' exists
-  local error_msg="no struct exists with name \\'$name\\' and field \\'$field\\'"
-  eval ": \"\${struct_${name}_$field?$error_msg}\"" || return $?
+  # assert 'struct_${name}_${field}' exists
+  eval ": \"\${struct_${1}_$2?no struct exists with name '$1' and field '$2'}\"" \
+    || return $?
 
-  # set 'struct_$name_$field' variable
-  eval "struct_${name}_$field=\$value"
+  # set 'struct_${name}_${field}' variable
+  eval "struct_${1}_$2=\$3"
 }
 
 #
@@ -196,16 +204,16 @@ struct_set() {
 # Return success is a structure exists with STRUCT_NAME; else return failure.
 #
 struct_exists() {
-  local name="${1:?missing struct name}"
+  : "${1:?missing struct name}"
 
-  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 1 ] || : "${_struct_exists_extra_args:?extra argument(s)}"
 
-  if ! is_valid_identifier "$name"; then
-    echo "'$name' is not a valid identifier" >&2
+  if ! is_valid_identifier "$1"; then
+    echo "'$1' is not a valid identifier" >&2
     return 2
   fi
 
-  eval "test \"\${struct_$name:-}\""
+  eval "test \"\${struct_$1:-}\""
 }
 
 #
@@ -217,25 +225,26 @@ struct_exists() {
 # exist) report an error and exit (non-interactive) shell.
 #
 struct_has() {
-  local name="${1:?missing struct name}"
-  local field="${2:?missing field name}"
+  : "${1:?missing struct name}"
+  : "${2:?missing field name}"
 
-  local extra_args=''; [ $# -eq 2 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 2 ] || : "${_struct_has_extra_args:?extra argument(s)}"
 
-  local arg; for arg in "$name" "$field"; do
-    if ! is_valid_identifier "$arg"; then
-      echo "'$arg' is not a valid identifier" >&2
+  for _struct_has_arg in "$1" "$2"; do
+    if ! is_valid_identifier "$_struct_has_arg"; then
+      unset _struct_has_arg
+      echo "'$_struct_has_arg' is not a valid identifier" >&2
       return 2
     fi
   done
+  unset _struct_has_arg
 
-  local error_msg="no struct exists with name \\'$name\\'"
+  eval "_struct_has_field_list=\"\${struct_$1?no struct exists with name '$1'}\""
 
-  eval "local field_list=\"\${struct_$name?$error_msg}\""
-
-  case " $field_list " in
-    *" $field "*) true ;;
-    *)           false ;;
+  # shellcheck disable=SC2154 # _struct_has_field_list set by `eval` above
+  case " $_struct_has_field_list " in
+    *" $2 "*) unset _struct_has_field_list; true  ;;
+    *)        unset _struct_has_field_list; false ;;
   esac
 }
 
@@ -254,26 +263,24 @@ struct_has() {
 # and exit (non-interactive) shell.
 #
 struct_test() {
-  local name="${1:?missing struct name}"
-  local field="${2:?missing field name}"
-  local op="${3:?missing test operator}"
-  local value="${4?missing test value}"
+  : "${1:?missing struct name}"
+  : "${2:?missing field name}"
+  : "${3:?missing test operator}"
+  : "${4?missing test value}"
 
-  local extra_args=''; [ $# -eq 4 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 4 ] || : "${_struct_test_extra_args:?extra argument(s)}"
 
-  local arg; for arg in "$name" "$field"; do
-    if ! is_valid_identifier "$arg"; then
-      echo "'$arg' is not a valid identifier" >&2
+  for _struct_test_arg in "$1" "$2"; do
+    if ! is_valid_identifier "$_struct_test_arg"; then
+      unset _struct_test_arg
+      echo "'$_struct_test_arg' is not a valid identifier" >&2
       return 2
     fi
   done
+  unset _struct_test_arg
 
-  local error_msg="no struct exists with name \\'$name\\' and field \\'$field\\'"
-
-  eval "local actual_value=\"\${struct_${name}_$field?$error_msg}\""
-
-  # shellcheck disable=SC2154 # actual_value set by `eval` above
-  test "$actual_value" "$op" "$value"
+  eval test "\"\${struct_${1}_$2?no struct exists with name '$1' and field '$2'}\"" \
+            "\"\$3\"" "\"\$4\""
 }
 
 #
@@ -292,55 +299,59 @@ struct_test() {
 #   echo "x=$(struct_get vec x), y=$(struct_get vec y), z=$(struct_get z)"
 #
 struct_pack() {
-  local name="${1:?missing struct name}"; shift
+  if [ ! "${_struct_pack_recursed:-}" ]; then
+    _struct_pack_recursed=1
+    struct_pack "$@"
+    eval unset _struct_pack_recursed \
+               _struct_pack_name _struct_pack_field \
+               _struct_pack_field_name _struct_pack_field_value \
+               _struct_pack_field_list \; return $?
+  fi
+
+  _struct_pack_name="${1:?missing struct name}"; shift
 
   if [ $# -eq 0 ]; then
     echo "missing field name(s)" >&2
     return 2
   fi
 
-  if ! is_valid_identifier "$name"; then
-    echo "'$name' is not a valid struct name" >&2
+  if ! is_valid_identifier "$_struct_pack_name"; then
+    echo "'$_struct_pack_name' is not a valid struct name" >&2
     return 2
   fi
 
-  local field=''
-  local field_name=''
-
-  for field in "$@"; do
-    field_name=${field%%=*}
-    if ! is_valid_identifier "$field_name"; then
-      echo "'$field_name' is not a valid field name" >&2
+  for _struct_pack_field in "$@"; do
+    _struct_pack_field_name=${_struct_pack_field%%=*}
+    if ! is_valid_identifier "$_struct_pack_field_name"; then
+      echo "'$_struct_pack_field_name' is not a valid field name" >&2
       return 2
     fi
 
-    case $field in *=*) ;; *)
-      echo "missing value for '$field_name' field" >&2
+    case $_struct_pack_field in *=*) ;; *)
+      echo "missing value for '$_struct_pack_field_name' field" >&2
       return 2
     ;; esac
   done
 
-  eval "local field_list=\"\${struct_$name:-}\""
-  if [ ! "$field_list" ]; then
-    echo "there is no struct named '$name'" >&2
+  eval "_struct_pack_field_list=\"\${struct_${_struct_pack_name}:-}\""
+  if [ ! "$_struct_pack_field_list" ]; then
+    echo "there is no struct named '$_struct_pack_name'" >&2
     return 2
   fi
 
-  for field in "$@"; do
-    field_name=${field%%=*}
-    case " $field_list " in *" $field_name "*) ;; *)
-      echo "no '$field_name' field exists in struct '$name'" >&2
+  for _struct_pack_field in "$@"; do
+    _struct_pack_field_name=${_struct_pack_field%%=*}
+    case " $_struct_pack_field_list " in *" $_struct_pack_field_name "*) ;; *)
+      echo "no '$_struct_pack_field_name' field exists in struct '$_struct_pack_name'" >&2
       return 2
     ;; esac
   done
 
-  local field_value=''
+  for _struct_pack_field in "$@"; do
+    _struct_pack_field_name=${_struct_pack_field%%=*}
+    _struct_pack_field_value=${_struct_pack_field#*=}
 
-  for field in "$@"; do
-    field_name=${field%%=*}
-    field_value=${field#*=}
-
-    eval "struct_${name}_$field_name=\"\$field_value\""
+    eval "struct_${_struct_pack_name}_${_struct_pack_field_name}=\"\$_struct_pack_field_value\""
   done
 }
 
@@ -372,14 +383,17 @@ struct_pack() {
 #   struct_unpack vector1 x:a y:b z:c
 #   echo "a=$a, b=$b, c=$c"
 #
-# Implementation Notes:
-#   The reason all local variables in this function are prefixed with
-#   `_struct_unpack_` is to reduce the likelihood of one of the local
-#   variables having the same name as an output variable and thus
-#   the output variable from being created/updated on function completion.
-#
 struct_unpack() {
-  local _struct_unpack_name="${1:?missing struct name}"; shift
+  if [ ! "${_struct_unpack_recursed:-}" ]; then
+    _struct_unpack_recursed=1
+    struct_unpack "$@"
+    eval unset _struct_unpack_recursed \
+               _struct_unpack_name _struct_unpack_field \
+               _struct_unpack_field_name _struct_unpack_field_dest \
+               _struct_unpack_field_list \; return $?
+  fi
+
+  _struct_unpack_name="${1:?missing struct name}"; shift
 
   if [ $# -eq 0 ]; then
     echo "missing field name(s)" >&2
@@ -391,10 +405,6 @@ struct_unpack() {
     return 2
   fi
 
-  local _struct_unpack_field=''
-  local _struct_unpack_field_name=''
-  local _struct_unpack_field_dest=''
-
   for _struct_unpack_field in "$@"; do
     _struct_unpack_field_name=${_struct_unpack_field%%:*}
     if ! is_valid_identifier "$_struct_unpack_field_name"; then
@@ -402,6 +412,7 @@ struct_unpack() {
       return 2
     fi
 
+    # shellcheck disable=SC2249 # default case not needed
     case $_struct_unpack_field in *:*)
       _struct_unpack_field_dest=${_struct_unpack_field#*:}
       if [ ! "$_struct_unpack_field_dest" ] \
@@ -413,7 +424,7 @@ struct_unpack() {
     ;; esac
   done
 
-  eval "local _struct_unpack_field_list=\"\${struct_$_struct_unpack_name:-}\""
+  eval "_struct_unpack_field_list=\"\${struct_$_struct_unpack_name:-}\""
   if [ ! "$_struct_unpack_field_list" ]; then
     echo "there is no struct named '$_struct_unpack_name'" >&2
     return 2
@@ -446,30 +457,32 @@ struct_unpack() {
 # Report error if there is no such structure.
 #
 struct_print() {
-  local name="${1:?missing struct name}"
+  : "${1:?missing struct name}"
 
-  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 1 ] || : "${_struct_print_extra_args:?extra argument(s)}"
 
-  if ! is_valid_identifier "$name"; then
-    echo "'$name' is not a valid identifier" >&2
+  if ! is_valid_identifier "$1"; then
+    echo "'$1' is not a valid identifier" >&2
     return 2
   fi
 
-  eval "local field_list=\"\${struct_$name:-}\""
-  if [ ! "$field_list" ]; then
-    echo "there is no struct named '$name'" >&2
+  eval "_struct_print_field_list=\"\${struct_$1:-}\""
+  if [ ! "$_struct_print_field_list" ]; then
+    unset _struct_print_field_list
+    echo "there is no struct named '$1'" >&2
     return 2
   fi
 
   # print each 'struct_$name_$field' variable
-  local field=''
-  local value=''
-  for field in $field_list; do
-    eval "value=\"\${struct_${name}_$field}\""
+  for _struct_print_field in $_struct_print_field_list; do
+    eval "_struct_print_value=\"\${struct_${1}_${_struct_print_field}}\""
 
-    escape_var value
-    echo "$field=$value"
+    escape_var _struct_print_value
+    # shellcheck disable=SC2154 # _struct_has_field_list set by `escape_var`
+    echo "$_struct_print_field=$_struct_print_value"
   done
+
+  unset _struct_print_field_list _struct_print_field _struct_print_value
 }
 
 #
@@ -480,23 +493,26 @@ struct_print() {
 # Do nothing if there is no such structure.
 #
 struct_undef() {
-  local name="${1:?missing struct name}"
+  : "${1:?missing struct name}"
 
-  local extra_args=''; [ $# -eq 1 ] || : "${extra_args:?extra argument(s)}"
+  [ $# -eq 1 ] || : "${_struct_undef_extra_args:?extra argument(s)}"
 
-  if ! is_valid_identifier "$name"; then
-    echo "'$name' is not a valid identifier" >&2
+  if ! is_valid_identifier "$1"; then
+    echo "'$1' is not a valid identifier" >&2
     return 2
   fi
 
-  eval "local field_list=\"\${struct_$name:-}\""
-  if [ ! "$field_list" ]; then
+  eval "_struct_undef_field_list=\"\${struct_$1:-}\""
+  if [ ! "$_struct_undef_field_list" ]; then
+    unset _struct_undef_field_list
     return 0
   fi
 
-  local field; for field in $field_list; do
-    eval "unset struct_${name}_$field"
+  for _struct_undef_field in $_struct_undef_field_list; do
+    eval "unset struct_${1}_${_struct_undef_field}"
   done
 
-  eval "unset struct_$name"
+  eval "unset struct_$1"
+
+  unset _struct_undef_field_list _struct_undef_field
 }
