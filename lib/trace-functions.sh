@@ -1,5 +1,4 @@
 # shellcheck shell=sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
 # --------------------------------------------------------------------------------
 # WARNING: This file must be loaded using `include` (from 'include-function.sh').
@@ -22,16 +21,15 @@ print_banner() {
     echo "missing message" >&2
     return 2
   fi
-  local msg="$*"
 
   echo ''
 
   if [ "${DRY_RUN:-0}" -eq 0 ]; then
     echo "=================================================="
-    echo "$msg" | tr '[:lower:]' '[:upper:]'
+    echo "$*" | tr '[:lower:]' '[:upper:]'
     echo "=================================================="
   else
-    echo "# $msg"
+    echo "# $*"
   fi
 }
 
@@ -51,30 +49,34 @@ print_banner() {
 # will never be executed but will still be printed when DRY_RUN is non-zero.
 #
 run() {
-  local eval=0
-  local dry_run_only=0
+  _run_eval=0
+  _run_dry_only=0
   while true; do
     case ${1:-} in
-      -e) eval=1; shift         ;;
-      -n) dry_run_only=1; shift ;;
-       *) break                 ;;
+      -e) _run_eval=1; shift     ;;
+      -n) _run_dry_only=1; shift ;;
+       *) break                  ;;
     esac
   done
 
+  : "${1:?missing missing argument(s)}"
+
   if [ "${DRY_RUN:-0}" -eq 0 ]; then
-    if [ "$dry_run_only" -eq 0 ]; then
-      if [ "$eval" -eq 1 ]; then
+    if [ "$_run_dry_only" -eq 0 ]; then
+      if [ "$_run_eval" -eq 1 ]; then
         eval "$*"
       else
         "$@"
       fi
     fi
   elif [ $# -gt 0 ]; then
-    if [ "$eval" -eq 1 ]; then
+    if [ "$_run_eval" -eq 1 ]; then
       echo "$*"
     else
       escape "$@"
       printf '\n'
     fi
   fi
+
+  eval "unset _run_eval _run_dry_only; return $?"
 }

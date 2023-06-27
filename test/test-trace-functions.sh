@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
-# shellcheck disable=SC2164 # chance of `cd` failing is neglible
+# shellcheck disable=SC2164,SC2312 # chance of `cd` failing is neglible
+# shellcheck disable=SC1091 # do not follow source
 . "$(cd -- "$(dirname "$0")"; pwd)/../lib/include-function.sh"
 include ../lib/trace-functions.sh
 
@@ -19,6 +19,9 @@ test_print_banner() {
 }
 
 test_run() {
+  assertFalse 'missing arguments' 'run'
+  assertFalse 'empty argument' "run ''"
+
   assertEquals 'normal run output' \
     "yes no" \
     "$(run echo yes no)"
