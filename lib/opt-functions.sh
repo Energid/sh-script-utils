@@ -1,5 +1,4 @@
 # shellcheck shell=sh
-# shellcheck disable=SC3043 # allow 'local' usage
 
 # --------------------------------------------------------------------------------
 # WARNING: This file must be loaded using `include` (from 'include-function.sh').
@@ -35,16 +34,24 @@ include common-functions.sh
 # will be returned. Likewise, providing a medium-option-defining OPT_DEF
 # without -m will also cause an error to be returned.
 #
-# Implementation Notes:
-#   The reason all local variables in this function are prefixed with
-#   `_bos_` is to reduce the likelihood of one of the variables
-#   having the same name as SHORT_NAME, MEDIUM_NAME, or LONG_NAME and thus
-#   preventing $SHORT_NAME, $MEDIUM_NAME, or $LONG_NAME from being updated
-#   on function completion.
-#
 build_opt_specs() {
-  local _bos_long_spec_name=''
-  local _bos_medium_spec_name=''
+  if [ ! "${_bos_recursed:-}" ]; then
+    _bos_recursed=1
+    build_opt_specs "$@"
+    eval unset _bos_recursed \
+               _bos_long_spec_name _bos_medium_spec_name _bos_short_spec_name \
+               _bos_arg \
+               _bos_long_opt_spec _bos_medium_opt_spec _bos_short_opt_spec \
+               _bos_optdef _bos_found_bad_opt \
+               _bos_found_long_opt _bos_found_medium_opt _bos_found_short_opt \
+               _bos_long_opt _bos_medium_opt _bos_short_opt \
+               _bos_optarg_sigil \
+               _bos_long_opt_spec _bos_medium_opt_spec _bos_short_opt_spec \
+         \; return $?
+  fi
+
+  _bos_long_spec_name=''
+  _bos_medium_spec_name=''
   while true; do
     case ${1:-} in
       -l) _bos_long_spec_name="${2:?option '-l' requires an argument}"; shift 2 ;;
@@ -53,9 +60,8 @@ build_opt_specs() {
     esac
   done
 
-  local _bos_short_spec_name="${1:?missing short option spec name}"; shift
+  _bos_short_spec_name="${1:?missing short option spec name}"; shift
 
-  local _bos_arg
   for _bos_arg in "$_bos_short_spec_name" \
              "$_bos_medium_spec_name" \
              "$_bos_long_spec_name"
@@ -66,18 +72,17 @@ build_opt_specs() {
     fi
   done
 
-  local _bos_short_opt_spec=":"
-  local _bos_medium_opt_spec=""
-  local _bos_long_opt_spec=""
+  _bos_short_opt_spec=":"
+  _bos_medium_opt_spec=""
+  _bos_long_opt_spec=""
 
   while [ $# -gt 0 ]; do
-    local _bos_optdef="$1"
-    shift
+    _bos_optdef="$1"; shift
 
-    local _bos_found_short_opt=0
-    local _bos_found_medium_opt=0
-    local _bos_found_long_opt=0
-    local _bos_found_bad_opt=0
+    _bos_found_short_opt=0
+    _bos_found_medium_opt=0
+    _bos_found_long_opt=0
+    _bos_found_bad_opt=0
     case ${_bos_optdef%:} in
       # short option
       [0-9A-Za-z])
@@ -120,8 +125,8 @@ build_opt_specs() {
       return 2
     fi
 
-    local _bos_short_opt=''
-    local _bos_medium_opt=''
+    _bos_short_opt=''
+    _bos_medium_opt=''
     if [ "$_bos_found_short_opt" -eq 1 ]; then
       _bos_short_opt=${_bos_optdef%\(*}
       _bos_short_opt=${_bos_short_opt%:}
@@ -130,13 +135,13 @@ build_opt_specs() {
       _bos_medium_opt=${_bos_medium_opt%:}
     fi
 
-    local _bos_long_opt=''
+    _bos_long_opt=''
     if [ "$_bos_found_long_opt" -eq 1 ]; then
       _bos_long_opt=${_bos_optdef#*\(}
       _bos_long_opt=${_bos_long_opt%\)*}
     fi
 
-    local _bos_optarg_sigil=''
+    _bos_optarg_sigil=''
     if [ "${_bos_optdef%:}" != "$_bos_optdef" ]; then
       _bos_optarg_sigil=':'
     fi
@@ -208,11 +213,10 @@ build_opt_specs() {
 #     output_dir=''
 #     help=0
 #
-#     local short_opts medium_opts long_opts
 #     build_opt_specs -l long_opts -m medium_opts short_opts \
 #                     'id(input-dir):' 'od(output-dir):' 'h(help)'
 #
-#     local OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
+#     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
 #     while eval "$(get_medium_opts "$medium_opts" "$OPTIND" opt "$@")" \
 #           || { getopts "$short_opts" opt "$@" \
 #                && eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")"; }
@@ -225,7 +229,7 @@ build_opt_specs() {
 #         :) bad_opt=$OPTARG ; no_optarg=1; break ;;
 #         *) bad_opt=$OPTARG ; break ;;
 #       esac
-#     done; shift $((OPTIND - 1))
+#     done; shift $((OPTIND - 1)); OPTIND=1
 #
 #     # check bad_opt/no_optarg and handle remaining (non-option) arguments here...
 #   }
@@ -254,12 +258,21 @@ build_opt_specs() {
 #   to `1` whenever a new function is entered.
 #
 get_medium_opts() {
+  if [ ! "${_gmo_recursed:-}" ]; then
+    _gmo_recursed=1
+    get_medium_opts "$@"
+    eval unset _gmo_recursed \
+               _gmo_opt_spec _gmo_opt_index _gmo_opt_name \
+               _gmo_current_arg _gmo_matched_opt _gmo_opt_arg \
+         \; return $?
+  fi
+
   if [ ! "${1:-}" ]; then
     echo "echo 'missing medium-option specification' >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  local medium_opt_spec="$1"; shift
+  _gmo_opt_spec="$1"; shift
 
   if [ ! "${1:-}" ]; then
     echo "echo 'missing OPTIND value' >&2"
@@ -267,59 +280,62 @@ get_medium_opts() {
     return
   fi
   # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
-  local opt_index="${1%%:*}"; shift
+  _gmo_opt_index="${1%%:*}"; shift
 
   if [ ! "${1:-}" ]; then
     echo "echo 'missing getopts output variable name' >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  local opt_name="$1"; shift
+  _gmo_opt_name="$1"; shift
 
-  if ! is_number "$opt_index"; then
-    echo "echo \"$(escape "$opt_index") is not a valid number\" >&2"
+  if ! is_number "$_gmo_opt_index"; then
+    # shellcheck disable=SC2312 # chance of `escape` failing is negligible
+    echo "echo \"$(escape "$_gmo_opt_index") is not a valid number\" >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
 
-  if ! is_valid_identifier "$opt_name"; then
-    echo "echo \"$(escape "$opt_name") is not a valid identifier\" >&2"
+  if ! is_valid_identifier "$_gmo_opt_name"; then
+    # shellcheck disable=SC2312 # chance of `escape` failing is negligible
+    echo "echo \"$(escape "$_gmo_opt_name") is not a valid identifier\" >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
 
-  if [ "$opt_index" -gt $# ]; then
+  if [ "$_gmo_opt_index" -gt $# ]; then
     echo "false"; return
   fi
 
-  eval "local current_arg=\"\$$opt_index\""
+  eval "_gmo_current_arg=\"\$$_gmo_opt_index\""
 
-  # shellcheck disable=SC2154 # current_arg set by `eval` above
-  case $current_arg in -*) ;; *)
+  # shellcheck disable=SC2154 # _gmo_current_arg set by `eval` above
+  case $_gmo_current_arg in -*) ;; *)
     # not an option
     echo "false"; return
   ;; esac
 
-  local matched_opt="${current_arg#-}"
+  _gmo_matched_opt="${_gmo_current_arg#-}"
 
-  case " $medium_opt_spec " in
-    *" $matched_opt "*)
+  case " $_gmo_opt_spec " in
+    *" $_gmo_matched_opt "*)
       # medium option with no argument
-      echo "OPTIND=$((opt_index + 1))"
+      echo "OPTIND=$((_gmo_opt_index + 1))"
       ;;
-    *" $matched_opt: "*)
-      if [ "$((opt_index + 1))" -le $# ]; then
+    *" $_gmo_matched_opt: "*)
+      if [ "$((_gmo_opt_index + 1))" -le $# ]; then
         # medium option with provided argument
-        eval "local opt_arg=\"\$$((opt_index + 1))\""
-        escape_var opt_arg
-        echo "OPTARG=$opt_arg"
+        eval "_gmo_opt_arg=\"\$$((_gmo_opt_index + 1))\""
+        escape_var _gmo_opt_arg
+        # shellcheck disable=SC2154 # _gmo_opt_arg set by `eval` above
+        echo "OPTARG=$_gmo_opt_arg"
 
-        echo "OPTIND=$((opt_index + 2))"
+        echo "OPTIND=$((_gmo_opt_index + 2))"
       else
         # medium option with missing argument
-        echo "OPTARG=$matched_opt"
-        echo "OPTIND=$((opt_index + 1))"
-        matched_opt=':'
+        echo "OPTARG=$_gmo_matched_opt"
+        echo "OPTIND=$((_gmo_opt_index + 1))"
+        _gmo_matched_opt=':'
       fi
       ;;
     *)
@@ -328,7 +344,7 @@ get_medium_opts() {
       ;;
   esac
 
-  echo "$opt_name='$matched_opt'"
+  echo "$_gmo_opt_name='$_gmo_matched_opt'"
 }
 
 #
@@ -363,10 +379,9 @@ get_medium_opts() {
 #     category=''
 #     help=0
 #
-#     local short_opts long_opts
 #     build_opt_specs -l long_opts short_opts 'l(level):' 'c(category):' 'h(help)'
 #
-#     local OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
+#     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
 #     while getopts "$short_opts" opt "$@" \
 #           && eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")"
 #     do
@@ -378,7 +393,7 @@ get_medium_opts() {
 #         :) bad_opt=$OPTARG ; no_optarg=1; break ;;
 #         *) bad_opt=$OPTARG ; break ;;
 #       esac
-#     done; shift $((OPTIND - 1))
+#     done; shift $((OPTIND - 1)); OPTIND=1
 #
 #     # check bad_opt/no_optarg and handle remaining (non-option) arguments here...
 #   }
@@ -411,12 +426,21 @@ get_medium_opts() {
 #   to `1` whenever a new function is entered.
 #
 get_long_opts() {
+  if [ ! "${_glo_recursed:-}" ]; then
+    _glo_recursed=1
+    get_long_opts "$@"
+    eval unset _glo_recursed \
+               _glo_opt_spec _glo_opt_index _glo_opt_name \
+               _glo_matched_opt _glo_opt_arg \
+         \; return $?
+  fi
+
   if [ ! "${1:-}" ]; then
     echo "echo 'missing long-option specification' >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  local long_opt_spec="$1"; shift
+  _glo_opt_spec="$1"; shift
 
   if [ ! "${1:-}" ]; then
     echo "echo 'missing OPTIND value' >&2"
@@ -424,65 +448,67 @@ get_long_opts() {
     return
   fi
   # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
-  local opt_index="${1%%:*}"; shift
+  _glo_opt_index="${1%%:*}"; shift
 
   if [ ! "${1:-}" ]; then
     echo "echo 'missing getopts output variable name' >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  local opt_name="$1"; shift
+  _glo_opt_name="$1"; shift
 
-  if ! is_number "$opt_index"; then
-    echo "echo \"$(escape "$opt_index") is not a valid number\" >&2"
+  if ! is_number "$_glo_opt_index"; then
+    # shellcheck disable=SC2312 # chance of `escape` failing is negligible
+    echo "echo \"$(escape "$_glo_opt_index") is not a valid number\" >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
 
-  if ! is_valid_identifier "$opt_name"; then
-    echo "echo \"$(escape "$opt_name") is not a valid identifier\" >&2"
+  if ! is_valid_identifier "$_glo_opt_name"; then
+    # shellcheck disable=SC2312 # chance of `escape` failing is negligible
+    echo "echo \"$(escape "$_glo_opt_name") is not a valid identifier\" >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
 
-  eval "local matched_opt=\"\$$opt_name\""
+  eval "_glo_matched_opt=\"\$$_glo_opt_name\""
 
-  if [ "$matched_opt" = '-' ]; then
-    matched_opt=${OPTARG%%=*}
+  if [ "$_glo_matched_opt" = '-' ]; then
+    _glo_matched_opt=${OPTARG%%=*}
 
-    case " $long_opt_spec " in
-      *" $matched_opt "*)
+    case " $_glo_opt_spec " in
+      *" $_glo_matched_opt "*)
         if [ "${OPTARG%%=*}" != "$OPTARG" ]; then
           # long option with unexpected argument
-          matched_opt='?'
+          _glo_matched_opt='?'
         fi
         ;;
-      *" $matched_opt: "*)
+      *" $_glo_matched_opt: "*)
         if [ "${OPTARG%%=*}" != "$OPTARG" ]; then
           # long option with '='-delimited argument
-          local opt_arg="${OPTARG#*=}"
-          escape_var opt_arg
-          echo "OPTARG=$opt_arg"
-        elif [ "$opt_index" -le $# ]; then
+          _glo_opt_arg="${OPTARG#*=}"
+          escape_var _glo_opt_arg
+          echo "OPTARG=$_glo_opt_arg"
+        elif [ "$_glo_opt_index" -le $# ]; then
           # long option with IFS-delimited argument
-          eval "local opt_arg=\"\$$opt_index\""
-          escape_var opt_arg
-          echo "OPTARG=$opt_arg"
+          eval "_glo_opt_arg=\"\$$_glo_opt_index\""
+          escape_var _glo_opt_arg
+          echo "OPTARG=$_glo_opt_arg"
 
-          echo "OPTIND=$((opt_index + 1))"
+          echo "OPTIND=$((_glo_opt_index + 1))"
         else
           # long option with missing argument
-          matched_opt=':'
+          _glo_matched_opt=':'
         fi
         ;;
       *)
         # unrecognized long option
-        matched_opt='?'
+        _glo_matched_opt='?'
         ;;
     esac
   fi
 
-  echo "$opt_name='$matched_opt'"
+  echo "$_glo_opt_name='$_glo_matched_opt'"
 }
 
 #
@@ -506,15 +532,13 @@ get_long_opts() {
 #     output_dir=''
 #     help=0
 #
-#     local short_opts medium_opts long_opts
 #     build_opt_specs -l long_opts -m medium_opts short_opts \
 #                     'id(input-dir):' 'od(output-dir):' 'h(help)'
 #
-#     local opt_parser
 #     opt_parser="$(opt_parser_def -l "$long_opts" -m "$medium_opts" \
 #                                  "$short_opts" opt "$@")"
 #
-#     local OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
+#     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
 #     while eval "opt_parser"; do
 #       case $opt in
 #         id|input-dir)  input_dir=$OPTARG  ;;
@@ -524,7 +548,7 @@ get_long_opts() {
 #         :) bad_opt=$OPTARG ; no_optarg=1; break ;;
 #         *) bad_opt=$OPTARG ; break ;;
 #       esac
-#     done; shift $((OPTIND - 1))
+#     done; shift $((OPTIND - 1)); OPTIND=1
 #
 #     # check bad_opt/no_optarg and handle remaining (non-option) arguments here...
 #   }
@@ -539,25 +563,27 @@ get_long_opts() {
 #   parse_args -h
 #
 opt_parser_def() {
-  local long_opt_spec=''
-  local medium_opt_spec=''
+  _opd_long_opt_spec=''
+  _opd_medium_opt_spec=''
   while true; do
     case ${1:-} in
       -l) if [ ! "${2:-}" ]; then
+            unset _opd_long_opt_spec _opd_medium_opt_spec
             echo "echo \"option '-l' requires an argument\" >&2"
             echo "return 2 2>/dev/null || exit 2"
             return
           else
-            local long_opt_spec="$2"; shift 2
+            _opd_long_opt_spec="$2"; shift 2
           fi
           ;;
 
       -m) if [ ! "${2:-}" ]; then
+            unset _opd_long_opt_spec _opd_medium_opt_spec
             echo "echo \"option '-m' requires an argument\" >&2"
             echo "return 2 2>/dev/null || exit 2"
             return
           else
-            local medium_opt_spec="$2"; shift 2
+            _opd_medium_opt_spec="$2"; shift 2
           fi
           ;;
 
@@ -567,56 +593,61 @@ opt_parser_def() {
   done
 
   if [ ! "${1:-}" ]; then
+    unset _opd_long_opt_spec _opd_medium_opt_spec
     echo "echo 'missing short option specification' >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  local short_opt_spec="$1"; shift
+  _opd_short_opt_spec="$1"; shift
 
   if [ ! "${1:-}" ]; then
+    unset _opd_long_opt_spec _opd_medium_opt_spec _opd_short_opt_spec
     echo "echo 'missing getopts output variable name' >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  local opt_name="$1"; shift
+  _opd_escaped_opt_name="$1"; shift
+  escape_var _opd_escaped_opt_name
 
-  local escaped_opt_name="$opt_name"
-  escape_var escaped_opt_name
+  _opd_escaped_args=$(escape "$@")
 
-  local escaped_args
-  escaped_args=$(escape "$@")
-
-  if [ "$medium_opt_spec" ]; then
-    local escaped_medium_opt_spec="$medium_opt_spec"
-    escape_var escaped_medium_opt_spec
+  if [ "$_opd_medium_opt_spec" ]; then
+    _opd_escaped_medium_opt_spec="$_opd_medium_opt_spec"
+    escape_var _opd_escaped_medium_opt_spec
 
     printf "eval \"\$(get_medium_opts %s %s %s %s)\" || " \
-      "$escaped_medium_opt_spec" \
+      "$_opd_escaped_medium_opt_spec" \
       "\"\$OPTIND\"" \
-      "$escaped_opt_name" \
-      "$escaped_args"
+      "$_opd_escaped_opt_name" \
+      "$_opd_escaped_args"
   fi
 
-  if [ "$long_opt_spec" ]; then
+  if [ "$_opd_long_opt_spec" ]; then
     printf "%s" "{ "
   fi
 
-  local escaped_short_opt_spec="$short_opt_spec"
-  escape_var escaped_short_opt_spec
+  _opd_escaped_short_opt_spec="$_opd_short_opt_spec"
+  escape_var _opd_escaped_short_opt_spec
 
   printf "getopts %s %s %s" \
-      "$escaped_short_opt_spec" \
-      "$escaped_opt_name" \
-      "$escaped_args"
+      "$_opd_escaped_short_opt_spec" \
+      "$_opd_escaped_opt_name" \
+      "$_opd_escaped_args"
 
-  if [ "$long_opt_spec" ]; then
-    local escaped_long_opt_spec="$long_opt_spec"
-    escape_var escaped_long_opt_spec
+  if [ "$_opd_long_opt_spec" ]; then
+    _opd_escaped_long_opt_spec="$_opd_long_opt_spec"
+    escape_var _opd_escaped_long_opt_spec
 
     printf " && eval \"\$(get_long_opts %s %s %s %s)\"; }" \
-        "$escaped_long_opt_spec" \
+        "$_opd_escaped_long_opt_spec" \
         "\"\$OPTIND\"" \
-        "$escaped_opt_name" \
-        "$escaped_args"
+        "$_opd_escaped_opt_name" \
+        "$_opd_escaped_args"
   fi
+
+  unset _opd_long_opt_spec _opd_medium_opt_spec _opd_short_opt_spec \
+        _opd_escaped_opt_name _opd_escaped_args \
+        _opd_escaped_short_opt_spec \
+        _opd_escaped_medium_opt_spec \
+        _opd_escaped_long_opt_spec
 }
