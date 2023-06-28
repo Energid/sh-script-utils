@@ -19,6 +19,9 @@
 #   - mksh 59c
 #   - yash 2.50
 #
+# The 'get_long_opts' tests are known to fail with 'posh' (v0.14.1) due
+# to its lack of support for the '-' character in the `getopts` option string.
+#
 
 if ! hash shunit2 2>/dev/null; then
   echo "ERROR: Need to install 'shunit2' and/or add it to PATH." >&2

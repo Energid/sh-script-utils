@@ -95,9 +95,9 @@ escape_var() {
 
   # shellcheck disable=SC2154 # _escape_var_result used in `eval` statement
   # shellcheck disable=SC2249 # default case not needed
-  case $_escape_var_result in ''|*[[:punct:][:space:]]*)
+  case $_escape_var_result in ''|*[!0-9A-Za-z_]*)
     # shellcheck disable=SC2249 # default case not needed
-    case $_escape_var_result in ''|*[!-[:alnum:]^+,./:=@_]*)
+    case $_escape_var_result in ''|*[!-0-9A-Za-z^+,./:=@_]*)
       # shellcheck disable=SC2249 # default case not needed
       case $_escape_var_result in *\'*)
         replace_all _escape_var_result "'" "'\\''"
@@ -124,9 +124,9 @@ escape() {
     fi
 
     # shellcheck disable=SC2249 # default case not needed
-    case $_escape_arg in ''|*[[:punct:][:space:]]*)
+    case $_escape_arg in ''|*[!0-9A-Za-z_]*)
       # shellcheck disable=SC2249 # default case not needed
-      case $_escape_arg in ''|*[!-[:alnum:]^+,./:=@_]*)
+      case $_escape_arg in ''|*[!-0-9A-Za-z^+,./:=@_]*)
         # shellcheck disable=SC2249 # default case not needed
         case $_escape_arg in *\'*)
           replace_all _escape_arg "'" "'\\''"
