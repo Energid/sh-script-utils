@@ -82,7 +82,7 @@ include() {
 # initialize INCLUDE_ROOT variable
 case "$(file -- "${ZSH_ARGZERO:-$0}")" in
   *text*)
-    # shellcheck disable=SC2164 # chance of `cd` failing is neglible
+    # shellcheck disable=SC2164 # chance of `cd` failing is negligible
     INCLUDE_ROOT=$(cd -- "$(dirname "${ZSH_ARGZERO:-$0}")"; pwd)
     ;;
   *)

@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-# shellcheck disable=SC2164,SC2312 # chance of `cd` failing is neglible
+# shellcheck disable=SC2164,SC2312 # chance of `cd` failing is negligible
 # shellcheck disable=SC1091 # do not follow source
 . "$(cd -- "$(dirname "$0")"; pwd)/../lib/exit-functions.sh"
 
