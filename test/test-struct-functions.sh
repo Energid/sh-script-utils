@@ -282,6 +282,17 @@ test_struct_undef() {
   assertEquals "struct member 'x'" '' "${struct__test_struct_undef_abc_x:-}"
   assertEquals "struct member 'y'" '' "${struct__test_struct_undef_abc_y:-}"
   assertEquals "struct member 'z'" '' "${struct__test_struct_undef_abc_z:-}"
+
+  if local local_test 2>/dev/null; then
+    eval "$(struct_def -l record a=1 b=2 c=3)"
+    assertTrue 'undefining local struct' 'struct_undef record'
+    struct_undef record
+
+    assertEquals 'local struct member list' '' "${struct_record:-}"
+    assertEquals "local struct member 'a'" '' "${struct_record_a:-}"
+    assertEquals "local struct member 'b'" '' "${struct_record_b:-}"
+    assertEquals "local struct member 'c'" '' "${struct_record_c:-}"
+  fi
 }
 
 if [ "${ZSH_VERSION:-}" ]; then
