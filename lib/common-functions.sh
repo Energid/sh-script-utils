@@ -116,13 +116,9 @@ escape_var() {
 # Prints each ARG quoted and/or escaped for safe usage with `eval`.
 #
 escape() {
-  _escape_index=1
+  _escape_output=''
 
   for _escape_arg in "$@"; do
-    if [ "$_escape_index" -gt 1 ]; then
-      printf ' '
-    fi
-
     # shellcheck disable=SC2249 # default case not needed
     case $_escape_arg in ''|*[!0-9A-Za-z_]*)
       # shellcheck disable=SC2249 # default case not needed
@@ -132,16 +128,14 @@ escape() {
           replace_all _escape_arg "'" "'\\''"
         ;; esac
 
-        printf '%s' "'$_escape_arg'"
-        _escape_index=$((_escape_index + 1))
-
-        continue
+        _escape_arg="'$_escape_arg'"
       ;; esac
     ;; esac
 
-    printf '%s' "$_escape_arg"
-    _escape_index=$((_escape_index + 1))
+    _escape_output="${_escape_output:+$_escape_output }$_escape_arg"
   done
 
-  unset _escape_index _escape_arg
+  printf '%s' "$_escape_output"
+
+  unset _escape_output _escape_arg
 }
