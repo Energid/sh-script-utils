@@ -20,11 +20,10 @@ include common-functions.sh
 #
 # Structures provide a convenient way to pass multiple arguments to shell
 # functions and/or receive multiple results from functions. They are
-# essentially a POSIX-compliant (except for `local` usage) implementation
-# of `bash`'s associative arrays, albeit with added data safety. Once
-# a structure is defined, the set of its field names cannot be changed.
-# Attempting to read or write a non-existent structure field will cause
-# an error.
+# essentially a POSIX-compliant implementation of `bash`'s associative
+# arrays, albeit with added data safety. Once a structure is defined,
+# the set of its field names cannot be changed. Attempting to read or
+# write a non-existent structure field will cause an error.
 #
 # If not given a default VALUE, a structure's field will be empty (i.e. set
 # to an empty string).
@@ -59,6 +58,16 @@ include common-functions.sh
 #   #   y='6'
 #   #   z='9'
 #   struct_print vector3
+#
+# Note:
+#   The '-l' option is not really supported by ksh93 since that shell does
+#   not have the `local` keyword. The reason we do not use `typeset` instead
+#   is that function-local variables in ksh93 have static scoping (i.e. visible
+#   only in the declaring function), rather than the dynamic scoping
+#   (i.e.  visible in both the declaring function and all other functions
+#   that it calls) used by other shells. Without dynamic scoping, the various
+#   utilities in 'struct-functions.sh' are unusable with function-local
+#   variables.
 #
 # Implementation Notes:
 #   The reason the output of `struct_def` must be passed to `eval`, rather
