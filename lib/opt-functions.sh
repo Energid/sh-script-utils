@@ -14,7 +14,8 @@ include common-functions.sh
 # specification in $LONG_NAME for use with `get_long_opts`. With -m,
 # also generate medium-option specification in $MEDIUM_NAME for use
 # with `get_medium_opts`. The variables SHORT_NAME, MEDIUM_NAME (with -m),
-# and LONG_NAME (with -l) will be initialized if they do not already exist.
+# and LONG_NAME (with -l) will be created as global shell variables
+# if they do not already exist.
 #
 # Each OPT_DEF defines a recognized short/medium option and/or long
 # option. It must be in the form 'SHORT', 'MEDIUM', '(LONG)', 'SHORT(LONG)',
@@ -33,6 +34,14 @@ include common-functions.sh
 # If an OPT_DEF defines a long-option but -l was not used, then an error
 # will be returned. Likewise, providing a medium-option-defining OPT_DEF
 # without -m will also cause an error to be returned.
+#
+# Warning:
+#   If SHORT_NAME, MEDIUM_NAME, or LONG_NAME exists, it must be either a global
+#   shell variable or a local variable with dynamic scoping. Attempting to pass
+#   a local SHORT_NAME, MEDIUM_NAME, or LONG_NAME with static scoping will
+#   cause a global variable to be created/updated instead. Of all the POSIX-
+#   compliant shells that support local variables, only ksh93 and its
+#   descendants are known to use static scoping.
 #
 build_opt_specs() {
   if [ ! "${_bos_recursed:-}" ]; then
@@ -194,6 +203,9 @@ build_opt_specs() {
 # place its output, and that ARGs be the same positional arguments that will be
 # passed to `getopts`. Also OPT_SPEC must be a medium-option specification
 # from `build_opt_specs`.
+#
+# If SHORT_OPT does not exist, then it will be created as a global shell
+# variable.
 #
 # If the next argument processed by `getopts` would be a medium option in OPT_SPEC
 # with any required argument present, then this function will set $SHORT_OPT
@@ -359,6 +371,9 @@ get_medium_opts() {
 # were passed to `getopts`. Also OPT_SPEC must be a long-option specification
 # from `build_opt_specs`.
 #
+# If SHORT_OPT does not exist, then it will be created as a global shell
+# variable.
+#
 # If the last option processed by `getopts` was a long option in OPT_SPEC
 # with any required argument present, then this function will set $SHORT_OPT
 # to the name of the option and OPTARG to any argument for the option.
@@ -523,6 +538,9 @@ get_long_opts() {
 #
 # With -m, also generate code to call `get_medium_opts` with given medium-option
 # specification MEDIUM_OPT_SPEC, output variable SHORT_OPT, and positional ARGs.
+#
+# If SHORT_OPT does not exist, then it will be created as a global shell
+# variable.
 #
 # The output of this function should be passed to `eval` for execution.
 #

@@ -3,7 +3,7 @@
 #
 # Usage: is_number STRING
 #
-# Returns `0` if STRING is a valid integer; else returns `1`.
+# Returna success if STRING is a valid integer; else return failure.
 #
 is_number() {
   : "${1:?missing value}"
@@ -19,8 +19,8 @@ is_number() {
 #
 # Usage: is_valid_identifier STRING
 #
-# Returns `0` if STRING is a valid name for a shell variable;
-# else returns `1`.
+# Return success if STRING is a valid name for a shell variable;
+# else return failure.
 #
 is_valid_identifier() {
   : "${1:?missing identifier}"
@@ -38,8 +38,15 @@ is_valid_identifier() {
 #
 # Replace all instances of KEY in $VAR with REPL.
 #
-# REPL may be an empty string. If VAR does not exist, it will
-# be initialized with an empty string.
+# REPL may be an empty string. If VAR does not exist, it will be created
+# as a null global shell variable.
+#
+# Warning:
+#   If VAR exists, it must be either a global shell variable or a local
+#   variable with dynamic scoping. Attempting to pass a local VAR with
+#   static scoping will cause a global VAR to be created/updated instead.
+#   Of all the POSIX-compliant shells that support local variables,
+#   only ksh93 and its descendants are known to use static scoping.
 #
 replace_all() {
   : "${1:?missing variable name}"
@@ -77,9 +84,16 @@ replace_all() {
 # Modify $VAR such that it is quoted and/or escaped for safe usage with `eval`.
 #
 # This function provides a faster alternative to `escape`.
-
-# If VAR does not exist, it will be initialized with an empty string before
-# the function processes it.
+#
+# If VAR does not exist, it will be created as a null global shell variable
+# before the function processes it.
+#
+# Warning:
+#   If VAR exists, it must be either a global shell variable or a local
+#   variable with dynamic scoping. Attempting to pass a local VAR with
+#   static scoping will cause a global VAR to be created/updated instead.
+#   Of all the POSIX-compliant shells that support local variables,
+#   only ksh93 and its descendants are known to use static scoping.
 #
 escape_var() {
   : "${1:?missing variable name}"

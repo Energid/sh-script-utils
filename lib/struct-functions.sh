@@ -59,15 +59,12 @@ include common-functions.sh
 #   #   z='9'
 #   struct_print vector3
 #
-# Note:
-#   The '-l' option is not really supported by ksh93 since that shell does
-#   not have the `local` keyword. The reason we do not use `typeset` instead
-#   is that function-local variables in ksh93 have static scoping (i.e. visible
-#   only in the declaring function), rather than the dynamic scoping
-#   (i.e.  visible in both the declaring function and all other functions
-#   that it calls) used by other shells. Without dynamic scoping, the various
-#   utilities in 'struct-functions.sh' are unusable with function-local
-#   variables.
+# Warning:
+#   The '-l' option is not supported by ksh93 and its descendants since those
+#   shells do not have the `local` keyword. The reason we do not use `typeset`
+#   instead is that local variables in ksh93 have static scoping and are thus
+#   incompatible with the other functions in 'struct-functions.sh' that expect
+#   local variables to have dynamic scoping.
 #
 # Implementation Notes:
 #   The reason the output of `struct_def` must be passed to `eval`, rather

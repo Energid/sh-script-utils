@@ -12,8 +12,17 @@ include exit-functions.sh
 #
 # Create temporary file and assign its path to the shell variable NAME.
 #
+# If NAME does not exist, it will be created as a global shell variable.
+#
 # The temporary file will be automatically deleted when `trigger_exit_handlers`
 # (from exit-functions.sh) is called.
+#
+# Warning:
+#   If NAME exists, it must be either a global shell variable or a local
+#   variable with dynamic scoping. Attempting to pass a local NAME with
+#   static scoping will cause a global NAME to be created/updated instead.
+#   Of all the POSIX-compliant shells that support local variables,
+#   only ksh93 and its descendants are known to use static scoping.
 #
 get_temp_file() {
   : "${1:?missing output variable name}"
@@ -39,8 +48,17 @@ get_temp_file() {
 #
 # Create temporary directory and assign its path to the shell variable NAME.
 #
+# If NAME does not exist, it will be created as a global shell variable.
+#
 # The temporary directory will be automatically deleted when
 # `trigger_exit_handlers` (from exit-functions.sh) is called.
+#
+# Warning:
+#   If NAME exists, it must be either a global shell variable or a local
+#   variable with dynamic scoping. Attempting to pass a local NAME with
+#   static scoping will cause a global NAME to be created/updated instead.
+#   Of all the POSIX-compliant shells that support local variables,
+#   only ksh93 and its descendants are known to use static scoping.
 #
 get_temp_dir() {
   : "${1:?missing output variable name}"
