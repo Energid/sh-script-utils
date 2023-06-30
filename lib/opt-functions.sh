@@ -192,6 +192,173 @@ build_opt_specs() {
 }
 
 #
+# Usage: eval "$(get_long_opts OPT_SPEC OPT_INDEX SHORT_OPT ARG...)"
+#
+# Adjust `getopts` output to accommodate long options in OPT_SPEC.
+#
+# This function requires that `getopts` be called before it with a short-option
+# specification from `build_opt_specs`, that OPT_INDEX be the value of $OPTIND
+# from the caller's context, that $SHORT_OPT be the variable in which `getopts`
+# has placed its output, and that ARGs be the same positional arguments that
+# were passed to `getopts`. Also OPT_SPEC must be a long-option specification
+# from `build_opt_specs`.
+#
+# If SHORT_OPT does not exist, then it will be created as a global shell
+# variable.
+#
+# If the last option processed by `getopts` was a long option in OPT_SPEC
+# with any required argument present, then this function will set $SHORT_OPT
+# to the name of the option and OPTARG to any argument for the option.
+# Else, if the last processed option was a recognized long option with a
+# missing required argument, then $SHORT_OPT will be set to ':' and OPTARG
+# to the option name. Else, if the last processed option was an unrecognized
+# long option, then $SHORT_OPT will be set to '?' and OPTARG to the option name.
+# Else (if the last processed option was a short option), then this function
+# will do nothing.
+#
+# This function recognizes the equals sign and any IFS character as a valid
+# delimiter between a long option and its argument. For example, the options
+# `--level DEBUG` and `--level=DEBUG` are equivalent.
+#
+# Example:
+#   parse_args() {
+#     level=''
+#     category=''
+#     help=0
+#
+#     build_opt_specs -l long_opts short_opts 'l(level):' 'c(category):' 'h(help)'
+#
+#     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
+#     while getopts "$short_opts" opt "$@" \
+#           && eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")"
+#     do
+#       case $opt in
+#         l|level)    level=$OPTARG    ;;
+#         c|category) category=$OPTARG ;;
+#         h|help)     help=1           ;;
+#
+#         :) bad_opt=$OPTARG ; no_optarg=1; break ;;
+#         *) bad_opt=$OPTARG ; break ;;
+#       esac
+#     done; shift $((OPTIND - 1)); OPTIND=1
+#
+#     # check bad_opt/no_optarg and handle remaining (non-option) arguments here...
+#   }
+#
+#   # sets '$level' to 'INFO' and '$category' to 'general'
+#   parse_args --level=INFO -c general
+#
+#   # sets '$level' to 'ERROR' and '$category' to 'special'
+#   parse_args -l ERROR --category special
+#
+#   # sets '$help' to '1'
+#   parse_args -h
+#
+# Note:
+#   See `opt_parser_def` for a convenient code generator for
+#   `get_long_opts`, `get_medium_opts`, and `getopts`.
+#
+# Implementation Notes:
+#   The reason this function must be called after `getopts`, rather than it calling
+#   `getopts` itself, is to avoid a `dash` limitation in which `getopts` misbehaves
+#   when called through a wrapper function.
+#
+#   The reason the output of this function must be passed to `eval`, rather than
+#   the function called directly, is to avoid a `dash` limitation where `getopts`
+#   ignores any change to `OPTIND` that was a side effect of a function call.
+#
+#   The reason we need to pass the caller's `$OPTIND` value in as a parameter,
+#   rather than accessing it via dynamic scoping, is to work around idiosyncratic
+#   behavior of 'zsh' where the value of the OPTIND shell variable is reset to
+#   to `1` whenever a new function is entered.
+#
+get_long_opts() {
+  if [ ! "${_glo_recursed:-}" ]; then
+    _glo_recursed=1
+    get_long_opts "$@"
+    eval unset _glo_recursed \
+               _glo_opt_spec _glo_opt_index _glo_opt_name \
+               _glo_matched_opt _glo_opt_arg \
+         \; return $?
+  fi
+
+  if [ ! "${1:-}" ]; then
+    echo "echo 'missing long-option specification' >&2"
+    echo "return 2 2>/dev/null || exit 2"
+    return
+  fi
+  _glo_opt_spec="$1"; shift
+
+  if [ ! "${1:-}" ]; then
+    echo "echo 'missing OPTIND value' >&2"
+    echo "return 2 2>/dev/null || exit 2"
+    return
+  fi
+  # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
+  _glo_opt_index="${1%%:*}"; shift
+
+  if [ ! "${1:-}" ]; then
+    echo "echo 'missing getopts output variable name' >&2"
+    echo "return 2 2>/dev/null || exit 2"
+    return
+  fi
+  _glo_opt_name="$1"; shift
+
+  if ! is_number "$_glo_opt_index"; then
+    # shellcheck disable=SC2312 # chance of `escape` failing is negligible
+    echo "echo \"$(escape "$_glo_opt_index") is not a valid number\" >&2"
+    echo "return 2 2>/dev/null || exit 2"
+    return
+  fi
+
+  if ! is_valid_identifier "$_glo_opt_name"; then
+    # shellcheck disable=SC2312 # chance of `escape` failing is negligible
+    echo "echo \"$(escape "$_glo_opt_name") is not a valid identifier\" >&2"
+    echo "return 2 2>/dev/null || exit 2"
+    return
+  fi
+
+  eval "_glo_matched_opt=\"\$$_glo_opt_name\""
+
+  if [ "$_glo_matched_opt" = '-' ]; then
+    _glo_matched_opt=${OPTARG%%=*}
+
+    case " $_glo_opt_spec " in
+      *" $_glo_matched_opt "*)
+        if [ "${OPTARG%%=*}" != "$OPTARG" ]; then
+          # long option with unexpected argument
+          _glo_matched_opt='?'
+        fi
+        ;;
+      *" $_glo_matched_opt: "*)
+        if [ "${OPTARG%%=*}" != "$OPTARG" ]; then
+          # long option with '='-delimited argument
+          _glo_opt_arg="${OPTARG#*=}"
+          escape_var _glo_opt_arg
+          echo "OPTARG=$_glo_opt_arg"
+        elif [ "$_glo_opt_index" -le $# ]; then
+          # long option with IFS-delimited argument
+          eval "_glo_opt_arg=\"\$$_glo_opt_index\""
+          escape_var _glo_opt_arg
+          echo "OPTARG=$_glo_opt_arg"
+
+          echo "OPTIND=$((_glo_opt_index + 1))"
+        else
+          # long option with missing argument
+          _glo_matched_opt=':'
+        fi
+        ;;
+      *)
+        # unrecognized long option
+        _glo_matched_opt='?'
+        ;;
+    esac
+  fi
+
+  echo "$_glo_opt_name='$_glo_matched_opt'"
+}
+
+#
 # Usage: eval "$(get_medium_opts OPT_SPEC OPT_INDEX SHORT_OPT ARG...)"
 #
 # Parse next medium option from ARGs using both OPT_SPEC and OPT_INDEX
@@ -357,173 +524,6 @@ get_medium_opts() {
   esac
 
   echo "$_gmo_opt_name='$_gmo_matched_opt'"
-}
-
-#
-# Usage: eval "$(get_long_opts OPT_SPEC OPT_INDEX SHORT_OPT ARG...)"
-#
-# Adjust `getopts` output to accommodate long options in OPT_SPEC.
-#
-# This function requires that `getopts` be called before it with a short-option
-# specification from `build_opt_specs`, that OPT_INDEX be the value of $OPTIND
-# from the caller's context, that $SHORT_OPT be the variable in which `getopts`
-# has placed its output, and that ARGs be the same positional arguments that
-# were passed to `getopts`. Also OPT_SPEC must be a long-option specification
-# from `build_opt_specs`.
-#
-# If SHORT_OPT does not exist, then it will be created as a global shell
-# variable.
-#
-# If the last option processed by `getopts` was a long option in OPT_SPEC
-# with any required argument present, then this function will set $SHORT_OPT
-# to the name of the option and OPTARG to any argument for the option.
-# Else, if the last processed option was a recognized long option with a
-# missing required argument, then $SHORT_OPT will be set to ':' and OPTARG
-# to the option name. Else, if the last processed option was an unrecognized
-# long option, then $SHORT_OPT will be set to '?' and OPTARG to the option name.
-# Else (if the last processed option was a short option), then this function
-# will do nothing.
-#
-# This function recognizes the equals sign and any IFS character as a valid
-# delimiter between a long option and its argument. For example, the options
-# `--level DEBUG` and `--level=DEBUG` are equivalent.
-#
-# Example:
-#   parse_args() {
-#     level=''
-#     category=''
-#     help=0
-#
-#     build_opt_specs -l long_opts short_opts 'l(level):' 'c(category):' 'h(help)'
-#
-#     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
-#     while getopts "$short_opts" opt "$@" \
-#           && eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")"
-#     do
-#       case $opt in
-#         l|level)    level=$OPTARG    ;;
-#         c|category) category=$OPTARG ;;
-#         h|help)     help=1           ;;
-#
-#         :) bad_opt=$OPTARG ; no_optarg=1; break ;;
-#         *) bad_opt=$OPTARG ; break ;;
-#       esac
-#     done; shift $((OPTIND - 1)); OPTIND=1
-#
-#     # check bad_opt/no_optarg and handle remaining (non-option) arguments here...
-#   }
-#
-#   # sets '$level' to 'INFO' and '$category' to 'general'
-#   parse_args --level=INFO -c general
-#
-#   # sets '$level' to 'ERROR' and '$category' to 'special'
-#   parse_args -l ERROR --category special
-#
-#   # sets '$help' to '1'
-#   parse_args -h
-#
-# Note:
-#   See `opt_parser_def` for a convenient code generator for
-#   `get_long_opts`, `get_medium_opts`, and `getopts`.
-#
-# Implementation Notes:
-#   The reason this function must be called after `getopts`, rather than it calling
-#   `getopts` itself, is to avoid a `dash` limitation in which `getopts` misbehaves
-#   when called through a wrapper function.
-#
-#   The reason the output of this function must be passed to `eval`, rather than
-#   the function called directly, is to avoid a `dash` limitation where `getopts`
-#   ignores any change to `OPTIND` that was a side effect of a function call.
-#
-#   The reason we need to pass the caller's `$OPTIND` value in as a parameter,
-#   rather than accessing it via dynamic scoping, is to work around idiosyncratic
-#   behavior of 'zsh' where the value of the OPTIND shell variable is reset to
-#   to `1` whenever a new function is entered.
-#
-get_long_opts() {
-  if [ ! "${_glo_recursed:-}" ]; then
-    _glo_recursed=1
-    get_long_opts "$@"
-    eval unset _glo_recursed \
-               _glo_opt_spec _glo_opt_index _glo_opt_name \
-               _glo_matched_opt _glo_opt_arg \
-         \; return $?
-  fi
-
-  if [ ! "${1:-}" ]; then
-    echo "echo 'missing long-option specification' >&2"
-    echo "return 2 2>/dev/null || exit 2"
-    return
-  fi
-  _glo_opt_spec="$1"; shift
-
-  if [ ! "${1:-}" ]; then
-    echo "echo 'missing OPTIND value' >&2"
-    echo "return 2 2>/dev/null || exit 2"
-    return
-  fi
-  # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
-  _glo_opt_index="${1%%:*}"; shift
-
-  if [ ! "${1:-}" ]; then
-    echo "echo 'missing getopts output variable name' >&2"
-    echo "return 2 2>/dev/null || exit 2"
-    return
-  fi
-  _glo_opt_name="$1"; shift
-
-  if ! is_number "$_glo_opt_index"; then
-    # shellcheck disable=SC2312 # chance of `escape` failing is negligible
-    echo "echo \"$(escape "$_glo_opt_index") is not a valid number\" >&2"
-    echo "return 2 2>/dev/null || exit 2"
-    return
-  fi
-
-  if ! is_valid_identifier "$_glo_opt_name"; then
-    # shellcheck disable=SC2312 # chance of `escape` failing is negligible
-    echo "echo \"$(escape "$_glo_opt_name") is not a valid identifier\" >&2"
-    echo "return 2 2>/dev/null || exit 2"
-    return
-  fi
-
-  eval "_glo_matched_opt=\"\$$_glo_opt_name\""
-
-  if [ "$_glo_matched_opt" = '-' ]; then
-    _glo_matched_opt=${OPTARG%%=*}
-
-    case " $_glo_opt_spec " in
-      *" $_glo_matched_opt "*)
-        if [ "${OPTARG%%=*}" != "$OPTARG" ]; then
-          # long option with unexpected argument
-          _glo_matched_opt='?'
-        fi
-        ;;
-      *" $_glo_matched_opt: "*)
-        if [ "${OPTARG%%=*}" != "$OPTARG" ]; then
-          # long option with '='-delimited argument
-          _glo_opt_arg="${OPTARG#*=}"
-          escape_var _glo_opt_arg
-          echo "OPTARG=$_glo_opt_arg"
-        elif [ "$_glo_opt_index" -le $# ]; then
-          # long option with IFS-delimited argument
-          eval "_glo_opt_arg=\"\$$_glo_opt_index\""
-          escape_var _glo_opt_arg
-          echo "OPTARG=$_glo_opt_arg"
-
-          echo "OPTIND=$((_glo_opt_index + 1))"
-        else
-          # long option with missing argument
-          _glo_matched_opt=':'
-        fi
-        ;;
-      *)
-        # unrecognized long option
-        _glo_matched_opt='?'
-        ;;
-    esac
-  fi
-
-  echo "$_glo_opt_name='$_glo_matched_opt'"
 }
 
 #

@@ -115,106 +115,6 @@ test_build_opt_specs() {
         _test_bos_c _test_bos_cmn_ill_chars
 }
 
-test_get_medium_opts() {
-  assertFalse 'missing option specification' 'eval "$(get_medium_opts)"'
-  assertFalse 'missing OPTIND value' 'eval "$(get_medium_opts "ab")"'
-  assertFalse 'missing output variable name' 'eval "$(get_medium_opts "ab" 1)"'
-
-  assertFalse 'empty option specification' \
-    'eval "$(get_medium_opts "" 1 _test_gmo_opt)"'
-
-  assertFalse 'empty OPTIND value' \
-    'eval "$(get_medium_opts "ab" "" _test_gmo_opt)"'
-  assertFalse 'invalid OPTIND value' \
-    'eval "$(get_medium_opts "ab" "?" _test_gmo_opt)"'
-
-  assertFalse 'empty output variable name' \
-    'eval "$(get_medium_opts "ab" 1 "")"'
-  assertFalse 'invalid output variable name' \
-    'eval "$(get_medium_opts "ab" 1 "?")"'
-
-  _test_gmo_opt_spec='ab cd:'
-  _test_gmo_opt=''
-
-  assertFalse 'no arguments' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt)\""
-
-  OPTIND=1
-  set -- x
-  assertFalse 'non-option argument' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 1 "$OPTIND"
-
-  OPTIND=1
-  set -- -x
-  assertFalse 'short argument' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 1 "$OPTIND"
-
-  OPTIND=1
-  set -- --xy
-  assertFalse 'long argument' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 1 "$OPTIND"
-
-  OPTIND=1
-  set -- -xy
-  assertFalse 'unrecognized medium argument' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 1 "$OPTIND"
-
-  OPTIND=1
-  set -- -cd
-  assertTrue 'missing option argument' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 2 "$OPTIND"
-  assertEquals ':' "$_test_gmo_opt"
-  assertEquals 'cd' "$OPTARG"
-
-  OPTIND=1
-  set -- -cd foo -ab
-  assertTrue 'option with argument' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 3 "$OPTIND"
-  assertEquals 'cd' "$_test_gmo_opt"
-  assertEquals 'foo' "$OPTARG"
-  assertTrue 'basic option' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 4 "$OPTIND"
-  assertEquals 'ab' "$_test_gmo_opt"
-  assertFalse 'end of arguments' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 4 "$OPTIND"
-
-  OPTIND=1
-  set -- -ab -cd bar -x
-  assertTrue 'basic option' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 2 "$OPTIND"
-  assertEquals 'ab' "$_test_gmo_opt"
-  assertTrue 'option with argument' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 4 "$OPTIND"
-  assertEquals 'cd' "$_test_gmo_opt"
-  assertEquals 'bar' "$OPTARG"
-  assertFalse 'end of options' \
-    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
-  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
-  assertEquals 4 "$OPTIND"
-
-  unset _test_gmo_opt_spec _test_gmo_opt
-}
-
 test_get_long_opts() {
   assertFalse 'missing option specification' 'eval "$(get_long_opts)"'
   assertFalse 'missing OPTIND value' 'eval "$(get_long_opts "ab")"'
@@ -384,6 +284,106 @@ test_get_long_opts() {
 
   unset _test_glo_orig_OPTIND _test_glo_orig_OPTARG \
         _test_glo_opt_spec _test_glo_opt
+}
+
+test_get_medium_opts() {
+  assertFalse 'missing option specification' 'eval "$(get_medium_opts)"'
+  assertFalse 'missing OPTIND value' 'eval "$(get_medium_opts "ab")"'
+  assertFalse 'missing output variable name' 'eval "$(get_medium_opts "ab" 1)"'
+
+  assertFalse 'empty option specification' \
+    'eval "$(get_medium_opts "" 1 _test_gmo_opt)"'
+
+  assertFalse 'empty OPTIND value' \
+    'eval "$(get_medium_opts "ab" "" _test_gmo_opt)"'
+  assertFalse 'invalid OPTIND value' \
+    'eval "$(get_medium_opts "ab" "?" _test_gmo_opt)"'
+
+  assertFalse 'empty output variable name' \
+    'eval "$(get_medium_opts "ab" 1 "")"'
+  assertFalse 'invalid output variable name' \
+    'eval "$(get_medium_opts "ab" 1 "?")"'
+
+  _test_gmo_opt_spec='ab cd:'
+  _test_gmo_opt=''
+
+  assertFalse 'no arguments' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt)\""
+
+  OPTIND=1
+  set -- x
+  assertFalse 'non-option argument' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 1 "$OPTIND"
+
+  OPTIND=1
+  set -- -x
+  assertFalse 'short argument' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 1 "$OPTIND"
+
+  OPTIND=1
+  set -- --xy
+  assertFalse 'long argument' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 1 "$OPTIND"
+
+  OPTIND=1
+  set -- -xy
+  assertFalse 'unrecognized medium argument' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 1 "$OPTIND"
+
+  OPTIND=1
+  set -- -cd
+  assertTrue 'missing option argument' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 2 "$OPTIND"
+  assertEquals ':' "$_test_gmo_opt"
+  assertEquals 'cd' "$OPTARG"
+
+  OPTIND=1
+  set -- -cd foo -ab
+  assertTrue 'option with argument' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 3 "$OPTIND"
+  assertEquals 'cd' "$_test_gmo_opt"
+  assertEquals 'foo' "$OPTARG"
+  assertTrue 'basic option' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 4 "$OPTIND"
+  assertEquals 'ab' "$_test_gmo_opt"
+  assertFalse 'end of arguments' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 4 "$OPTIND"
+
+  OPTIND=1
+  set -- -ab -cd bar -x
+  assertTrue 'basic option' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 2 "$OPTIND"
+  assertEquals 'ab' "$_test_gmo_opt"
+  assertTrue 'option with argument' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 4 "$OPTIND"
+  assertEquals 'cd' "$_test_gmo_opt"
+  assertEquals 'bar' "$OPTARG"
+  assertFalse 'end of options' \
+    "eval \"\$(get_medium_opts '$_test_gmo_opt_spec' '$OPTIND' _test_gmo_opt $*)\""
+  eval "$(get_medium_opts "$_test_gmo_opt_spec" "$OPTIND" _test_gmo_opt "$@")"
+  assertEquals 4 "$OPTIND"
+
+  unset _test_gmo_opt_spec _test_gmo_opt
 }
 
 test_opt_parser_def() {
