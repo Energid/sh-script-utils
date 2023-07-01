@@ -28,8 +28,7 @@ include common-functions.sh
 #
 # Besides containing the short options extracted from the OPT_DEFs, the
 # $SHORT_NAME variable will also be prefixed with a colon (:) to configure
-# `getopts` to use silent error reporting. With -l, $SHORT_NAME will also
-# contain '-:' to ensure `getopts` accepts GNU-style long options.
+# `getopts` to use silent error reporting.
 #
 # If an OPT_DEF defines a long-option but -l was not used, then an error
 # will be returned. Likewise, providing a medium-option-defining OPT_DEF
@@ -167,10 +166,6 @@ build_opt_specs() {
   done
 
   if [ "$_bos_long_opt_spec" ]; then
-    _bos_short_opt_spec="${_bos_short_opt_spec}-:"
-  fi
-
-  if [ "$_bos_long_opt_spec" ]; then
     if [ ! "$_bos_long_spec_name" ]; then
       echo "need to use '-l' option when defining long option(s)" >&2
       return 2
@@ -194,27 +189,28 @@ build_opt_specs() {
 #
 # Usage: eval "$(get_long_opts OPT_SPEC OPT_INDEX SHORT_OPT ARG...)"
 #
-# Adjust `getopts` output to accommodate long options in OPT_SPEC.
+# Parse next long option from ARGs using both OPT_SPEC and OPT_INDEX
+# and store result in $SHORT_OPT.
 #
-# This function requires that `getopts` be called before it with a short-option
+# This function expects that `getopts` be called after it with a short-option
 # specification from `build_opt_specs`, that OPT_INDEX be the value of $OPTIND
 # from the caller's context, that $SHORT_OPT be the variable in which `getopts`
-# has placed its output, and that ARGs be the same positional arguments that
-# were passed to `getopts`. Also OPT_SPEC must be a long-option specification
+# will place its output, and that ARGs be the same positional arguments that
+# will be passed to `getopts`. Also OPT_SPEC must be a long-option specification
 # from `build_opt_specs`.
 #
 # If SHORT_OPT does not exist, then it will be created as a global shell
 # variable.
 #
-# If the last option processed by `getopts` was a long option in OPT_SPEC
+# If the next option processed by `getopts` would be a long option in OPT_SPEC
 # with any required argument present, then this function will set $SHORT_OPT
 # to the name of the option and OPTARG to any argument for the option.
-# Else, if the last processed option was a recognized long option with a
+# Else, if the next processed option would be a recognized long option with a
 # missing required argument, then $SHORT_OPT will be set to ':' and OPTARG
-# to the option name. Else, if the last processed option was an unrecognized
+# to the option name. Else, if the next processed option would be an unrecognized
 # long option, then $SHORT_OPT will be set to '?' and OPTARG to the option name.
-# Else (if the last processed option was a short option), then this function
-# will do nothing.
+# Else (if the next processed option would be a non-option or an option not in
+# OPT_SPEC), then this function will return failure.
 #
 # This function recognizes the equals sign and any IFS character as a valid
 # delimiter between a long option and its argument. For example, the options
@@ -229,8 +225,8 @@ build_opt_specs() {
 #     build_opt_specs -l long_opts short_opts 'l(level):' 'c(category):' 'h(help)'
 #
 #     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
-#     while getopts "$short_opts" opt "$@" \
-#           && eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")"
+#     while eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")" \
+#           && getopts "$short_opts" opt "$@" \
 #     do
 #       case $opt in
 #         l|level)    level=$OPTARG    ;;
@@ -259,7 +255,7 @@ build_opt_specs() {
 #   `get_long_opts`, `get_medium_opts`, and `getopts`.
 #
 # Implementation Notes:
-#   The reason this function must be called after `getopts`, rather than it calling
+#   The reason this function must be called before `getopts`, rather than it calling
 #   `getopts` itself, is to avoid a `dash` limitation in which `getopts` misbehaves
 #   when called through a wrapper function.
 #
@@ -278,7 +274,7 @@ get_long_opts() {
     get_long_opts "$@"
     eval unset _glo_recursed \
                _glo_opt_spec _glo_opt_index _glo_opt_name \
-               _glo_matched_opt _glo_opt_arg \
+               _glo_current_arg _glo_matched_opt _glo_opt_arg \
          \; return $?
   fi
 
@@ -318,42 +314,61 @@ get_long_opts() {
     return
   fi
 
-  eval "_glo_matched_opt=\"\$$_glo_opt_name\""
-
-  if [ "$_glo_matched_opt" = '-' ]; then
-    _glo_matched_opt=${OPTARG%%=*}
-
-    case " $_glo_opt_spec " in
-      *" $_glo_matched_opt "*)
-        if [ "${OPTARG%%=*}" != "$OPTARG" ]; then
-          # long option with unexpected argument
-          _glo_matched_opt='?'
-        fi
-        ;;
-      *" $_glo_matched_opt: "*)
-        if [ "${OPTARG%%=*}" != "$OPTARG" ]; then
-          # long option with '='-delimited argument
-          _glo_opt_arg="${OPTARG#*=}"
-          escape_var _glo_opt_arg
-          echo "OPTARG=$_glo_opt_arg"
-        elif [ "$_glo_opt_index" -le $# ]; then
-          # long option with IFS-delimited argument
-          eval "_glo_opt_arg=\"\$$_glo_opt_index\""
-          escape_var _glo_opt_arg
-          echo "OPTARG=$_glo_opt_arg"
-
-          echo "OPTIND=$((_glo_opt_index + 1))"
-        else
-          # long option with missing argument
-          _glo_matched_opt=':'
-        fi
-        ;;
-      *)
-        # unrecognized long option
-        _glo_matched_opt='?'
-        ;;
-    esac
+  if [ "$_glo_opt_index" -gt $# ]; then
+    echo "false"; return
   fi
+
+  eval "_glo_current_arg=\"\$$_glo_opt_index\""
+
+  # shellcheck disable=SC2154 # _glo_current_arg set by `eval` above
+  case $_glo_current_arg in --?*) ;; *)
+    # not a long option
+    echo "false"; return
+  ;; esac
+
+  _glo_current_arg=${_glo_current_arg#--*}
+
+  _glo_matched_opt=${_glo_current_arg%%=*}
+
+  case " $_glo_opt_spec " in
+    *" $_glo_matched_opt "*)
+      if [ "${_glo_current_arg%%=*}" != "$_glo_current_arg" ]; then
+        # long option with unexpected argument
+        echo "OPTARG=$_glo_matched_opt"
+        _glo_matched_opt='?'
+      fi
+
+      echo "OPTIND=$((_glo_opt_index + 1))"
+      ;;
+    *" $_glo_matched_opt: "*)
+      if [ "${_glo_current_arg%%=*}" != "$_glo_current_arg" ]; then
+        # long option with '='-delimited argument
+        _glo_opt_arg="${_glo_current_arg#*=}"
+        escape_var _glo_opt_arg
+        echo "OPTARG=$_glo_opt_arg"
+
+        echo "OPTIND=$((_glo_opt_index + 1))"
+      elif [ "$((_glo_opt_index + 1))" -le $# ]; then
+        # long option with IFS-delimited argument
+        eval "_glo_opt_arg=\"\$$((_glo_opt_index + 1))\""
+        escape_var _glo_opt_arg
+        echo "OPTARG=$_glo_opt_arg"
+
+        echo "OPTIND=$((_glo_opt_index + 2))"
+      else
+        # long option with missing argument
+        echo "OPTARG=$_glo_matched_opt"
+        _glo_matched_opt=':'
+        echo "OPTIND=$((_glo_opt_index + 1))"
+      fi
+      ;;
+    *)
+      # unrecognized long option
+      echo "OPTARG=$_glo_matched_opt"
+      _glo_matched_opt='?'
+      echo "OPTIND=$((_glo_opt_index + 1))"
+      ;;
+  esac
 
   echo "$_glo_opt_name='$_glo_matched_opt'"
 }
@@ -396,9 +411,9 @@ get_long_opts() {
 #                     'id(input-dir):' 'od(output-dir):' 'h(help)'
 #
 #     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
-#     while eval "$(get_medium_opts "$medium_opts" "$OPTIND" opt "$@")" \
-#           || { getopts "$short_opts" opt "$@" \
-#                && eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")"; }
+#     while eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")" \
+#           || eval "$(get_medium_opts "$medium_opts" "$OPTIND" opt "$@")" \
+#           || getopts "$short_opts" opt "$@"
 #     do
 #       case $opt in
 #         id|input-dir)  input_dir=$OPTARG  ;;
@@ -629,6 +644,17 @@ opt_parser_def() {
 
   _opd_escaped_args=$(escape "$@")
 
+  if [ "$_opd_long_opt_spec" ]; then
+    _opd_escaped_long_opt_spec="$_opd_long_opt_spec"
+    escape_var _opd_escaped_long_opt_spec
+
+    printf "eval \"\$(get_long_opts %s %s %s %s)\" || " \
+        "$_opd_escaped_long_opt_spec" \
+        "\"\$OPTIND\"" \
+        "$_opd_escaped_opt_name" \
+        "$_opd_escaped_args"
+  fi
+
   if [ "$_opd_medium_opt_spec" ]; then
     _opd_escaped_medium_opt_spec="$_opd_medium_opt_spec"
     escape_var _opd_escaped_medium_opt_spec
@@ -640,10 +666,6 @@ opt_parser_def() {
       "$_opd_escaped_args"
   fi
 
-  if [ "$_opd_long_opt_spec" ]; then
-    printf "%s" "{ "
-  fi
-
   _opd_escaped_short_opt_spec="$_opd_short_opt_spec"
   escape_var _opd_escaped_short_opt_spec
 
@@ -651,17 +673,6 @@ opt_parser_def() {
       "$_opd_escaped_short_opt_spec" \
       "$_opd_escaped_opt_name" \
       "$_opd_escaped_args"
-
-  if [ "$_opd_long_opt_spec" ]; then
-    _opd_escaped_long_opt_spec="$_opd_long_opt_spec"
-    escape_var _opd_escaped_long_opt_spec
-
-    printf " && eval \"\$(get_long_opts %s %s %s %s)\"; }" \
-        "$_opd_escaped_long_opt_spec" \
-        "\"\$OPTIND\"" \
-        "$_opd_escaped_opt_name" \
-        "$_opd_escaped_args"
-  fi
 
   unset _opd_long_opt_spec _opd_medium_opt_spec _opd_short_opt_spec \
         _opd_escaped_opt_name _opd_escaped_args \
