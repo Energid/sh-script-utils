@@ -18,9 +18,7 @@
 #   - ksh 93u+
 #   - mksh 59c
 #   - yash 2.50
-#
-# The 'get_long_opts' tests are known to fail with 'posh' (v0.14.1) due
-# to its lack of support for the '-' character in the `getopts` option string.
+#   - posh 0.14.1
 #
 
 if ! hash shunit2 2>/dev/null; then
@@ -65,7 +63,7 @@ if [ ! "$TestFiles" ]; then
 fi
 
 if [ ! "$TestShells" ]; then
-  for shell in busybox dash bash zsh ksh mksh yash; do
+  for shell in busybox dash bash zsh ksh mksh yash posh; do
     if hash "$shell" 2>/dev/null; then
       TestShells="${TestShells:+${TestShells} }$shell"
     fi
