@@ -12,9 +12,11 @@ include common-functions.sh
 # Concatenates given MESSAGEs and prints the result to standard error.
 # Also prints `1` to standard output for use with `return` or `exit`.
 #
-# If the script variable SCRIPT_NAME is defined, then the error
-# message will be prefixed with its value. Else, the message will
-# be prefixed with the name of the currently executing script (if any).
+# If the script variable ERROR_SOURCE is defined, then the error
+# message will be prefixed with its value. Else, if this function is called
+# non-interactively, the error message will be prefixed with the name of
+# the currently executing script. Else, the error message will be prefixed
+# with 'error:'.
 #
 # With the `-u` option, an additional error message will be printed to
 # guide the user to pass the `-h` option to currently executing script
@@ -46,10 +48,9 @@ error() {
     return 2
   fi
 
-  _error_source="${SCRIPT_NAME:-}"
-  if [ ! "$_error_source" ] && file -- "${ZSH_ARGZERO:-$0}" | grep -q 'text'; then
-    _error_source=${ZSH_ARGZERO:-$0}
-    _error_source=${_error_source##*/}
+  _error_source="${ERROR_SOURCE:-}"
+  if [ ! "$_error_source" ] && [ "${INCLUDE_ROOT:-}" ]; then
+    _error_source=${INCLUDE_ROOT##*/}
   fi
 
   echo "${_error_source:-error}: $*" >&2

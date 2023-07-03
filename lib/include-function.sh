@@ -32,7 +32,9 @@ fi
 # definitions in the file.
 #
 # The script file that sources 'include-function.sh' will have its full
-# path stored in the shell variable INCLUDE_ROOT.
+# directory path stored in the shell variable INCLUDE_ROOT.
+# Altneratively, If 'include-function.sh' is sourced interactively,
+# then INCLUDE_ROOT will be left unset.
 #
 # NOTE: This file should always be sourced from outermost scope of the
 #       the main script file (if any). Sourcing it from within a function
@@ -54,8 +56,10 @@ include() {
 
      *) if [ "${INCLUDE_SOURCE:-}" ]; then
           INCLUDE_SOURCE="$(dirname "$INCLUDE_SOURCE")/$1"
+        elif [ "${INCLUDE_ROOT:-}" ]; then
+          INCLUDE_SOURCE="${INCLUDE_ROOT%/*}/$1"
         else
-          INCLUDE_SOURCE="$INCLUDE_ROOT/$1"
+          INCLUDE_SOURCE="$PWD/$1"
         fi
         ;;
   esac
@@ -79,13 +83,12 @@ include() {
   fi
 }
 
-# initialize INCLUDE_ROOT variable
+# initialize INCLUDE_ROOT variable (if possible)
+# shellcheck disable=SC2249 # default case not needed
 case "$(file -- "${ZSH_ARGZERO:-$0}")" in
   *text*)
+    INCLUDE_ROOT=${ZSH_ARGZERO:-$0}
     # shellcheck disable=SC2164 # chance of `cd` failing is negligible
-    INCLUDE_ROOT=$(cd -- "$(dirname "${ZSH_ARGZERO:-$0}")"; pwd)
-    ;;
-  *)
-    INCLUDE_ROOT=$PWD
+    INCLUDE_ROOT="$(cd -- "$(dirname "$INCLUDE_ROOT")"; pwd)/${INCLUDE_ROOT##*/}"
     ;;
 esac

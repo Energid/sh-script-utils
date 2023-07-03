@@ -9,29 +9,29 @@ test_error() {
   assertFalse 'missing error message' error
   assertFalse 'empty error message' "error ''"
 
-  assertEquals 'normal error (w/o SCRIPT_NAME)' \
+  assertEquals 'normal error (w/o ERROR_SOURCE)' \
     "$(printf '%s\n%s\n' \
        'test-error-functions.sh: something went wrong' \
        1)" \
     "$(error something went wrong 2>&1)"
-  assertEquals 'normal error (w/ SCRIPT_NAME)' \
+  assertEquals 'normal error (w/ ERROR_SOURCE)' \
     "$(printf '%s\n%s\n' \
        'foobar: something went wrong' \
        1)" \
-    "$(SCRIPT_NAME='foobar' error 'something went wrong' 2>&1)"
+    "$(ERROR_SOURCE='foobar' error 'something went wrong' 2>&1)"
 
-  assertEquals 'user error (w/o SCRIPT_NAME)' \
+  assertEquals 'user error (w/o ERROR_SOURCE)' \
     "$(printf '%s\n%s\n%s\n' \
        'test-error-functions.sh: something went wrong' \
        "Try 'test-error-functions.sh -h' for more information." \
        2)" \
     "$(error -u 'something went wrong' 2>&1)"
-  assertEquals 'user error (w/ SCRIPT_NAME)' \
+  assertEquals 'user error (w/ ERROR_SOURCE)' \
     "$(printf '%s\n%s\n%s\n' \
        'foobar: something went wrong' \
        "Try 'foobar -h' for more information." \
        2)" \
-    "$(SCRIPT_NAME='foobar' error -u something went wrong 2>&1)"
+    "$(ERROR_SOURCE='foobar' error -u something went wrong 2>&1)"
 }
 
 if [ "${ZSH_VERSION:-}" ]; then
