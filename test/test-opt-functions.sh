@@ -139,101 +139,86 @@ test_get_long_opts() {
 
   OPTIND=1
   set -- x
-  assertFalse 'non-option argument' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  ! eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'non-option argument'
   assertEquals 1 "$OPTIND"
 
   OPTIND=1
   set -- -x
-  assertFalse 'short argument' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  ! eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'short argument'
   assertEquals 1 "$OPTIND"
 
   OPTIND=1
   set -- -xy
-  assertFalse 'medium argument' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  ! eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'medium argument'
   assertEquals 1 "$OPTIND"
 
   OPTIND=1
   OPTARG=''
   set -- --xy
-  assertTrue 'unrecognized long argument' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'unrecognized long argument'
   assertEquals 2 "$OPTIND"
   assertEquals '?' "$_test_glo_opt"
   assertEquals 'xy' "$OPTARG"
 
   OPTIND=1
   set -- --ef-gh
-  assertTrue 'missing option argument' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'missing option argument'
   assertEquals 2 "$OPTIND"
   assertEquals ':' "$_test_glo_opt"
   assertEquals 'ef-gh' "${OPTARG:-}"
 
   OPTIND=1
   set -- --ef-gh foo --ab-cd
-  assertTrue 'option with argument' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'option with argument'
   assertEquals 3 "$OPTIND"
   assertEquals 'ef-gh' "$_test_glo_opt"
   assertEquals 'foo' "${OPTARG:-}"
-  assertTrue 'basic option' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'option with argument'
   assertEquals 4 "$OPTIND"
   assertEquals 'ab-cd' "$_test_glo_opt"
-  assertFalse 'end of arguments' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  ! eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'end of arguments'
   assertEquals 4 "$OPTIND"
 
   OPTIND=1
   set -- --ab-cd --ef-gh bar -x
-  assertTrue 'basic option' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'basic option'
   assertEquals 2 "$OPTIND"
   assertEquals 'ab-cd' "$_test_glo_opt"
-  assertTrue 'option with argument' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'option with argument'
   assertEquals 4 "$OPTIND"
   assertEquals 'ef-gh' "$_test_glo_opt"
   assertEquals 'bar' "${OPTARG:-}"
-  assertFalse 'end of options' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $*)\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  ! eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'end of options'
   assertEquals 4 "$OPTIND"
 
   OPTIND=1
   set -- --ef-gh='yes & no' -x --ab-cd
-  assertTrue 'option with argument' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $(escape "$@"))\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'option with argument'
   assertEquals 2 "$OPTIND"
   assertEquals 'ef-gh' "$_test_glo_opt"
   assertEquals 'yes & no' "${OPTARG:-}"
-  assertFalse 'short option' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $(escape "$@"))\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  ! eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'short option'
   assertEquals 2 "$OPTIND"
   OPTIND=3 # skip to next long option
-  assertTrue 'basic option' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $(escape "$@"))\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'basic option'
   assertEquals 4 "$OPTIND"
   assertEquals 'ab-cd' "$_test_glo_opt"
-  assertFalse 'end of arguments' \
-    "eval \"\$(get_long_opts '$_test_glo_opt_spec' '$OPTIND' _test_glo_opt $(escape "$@"))\""
-  eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")"
+  ! eval "$(get_long_opts "$_test_glo_opt_spec" "$OPTIND" _test_glo_opt "$@")" \
+    || fail 'end of arguments'
   assertEquals 4 "$OPTIND"
 
   unset _test_glo_opt_spec _test_glo_opt
