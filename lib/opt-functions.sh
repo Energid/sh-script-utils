@@ -274,7 +274,7 @@ get_long_opts() {
     echo '{'
     get_long_opts "$@"
     eval unset _glo_recursed \
-               _glo_opt_spec _glo_opt_index _glo_opt_name \
+               _glo_opt_spec _glo_opt_index _glo_opt_subindex _glo_opt_name \
                _glo_current_arg _glo_matched_opt _glo_opt_arg \
          \; echo \\\} \; return $?
   fi
@@ -291,8 +291,14 @@ get_long_opts() {
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
-  _glo_opt_index="${1%%:*}"; shift
+  _glo_opt_index="$1"
+  _glo_opt_subindex=''
+  case $_glo_opt_index in *:*)
+    # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
+    _glo_opt_index="${1%%:*}"
+    _glo_opt_subindex="${1#*:}"
+  ;; esac
+  shift
 
   if [ ! "${1:-}" ]; then
     echo "echo 'missing getopts output variable name' >&2"
@@ -301,9 +307,13 @@ get_long_opts() {
   fi
   _glo_opt_name="$1"; shift
 
-  if ! is_number "$_glo_opt_index"; then
+  if ! is_number "$_glo_opt_index" \
+    || { [ -n "$_glo_opt_subindex" ] && ! is_number "$_glo_opt_subindex"; }
+  then
     # shellcheck disable=SC2312 # chance of `escape` failing is negligible
-    echo "echo \"$(escape "$_glo_opt_index") is not a valid number\" >&2"
+    echo "echo" \
+         "\"$(escape "${_glo_opt_index}${_glo_opt_subindex:+":$_glo_opt_subindex"}")" \
+         "is not a valid number\" >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
@@ -320,6 +330,15 @@ get_long_opts() {
   fi
 
   eval "_glo_current_arg=\"\$$_glo_opt_index\""
+  if [ -n "$_glo_opt_subindex" ] \
+    && [ "$_glo_opt_subindex" -ge "${#_glo_current_arg}" ]
+  then
+    # NOTE: `yash` sometimes increments the CHAR_INDEX component of OPTIND
+    #       out of bounds, rather than incrementing the ARG_INDEX component,
+    #       after parsing a short option with `getopts`.
+    _glo_opt_index=$((_glo_opt_index + 1))
+    eval "_glo_current_arg=\"\$$_glo_opt_index\""
+  fi
 
   # shellcheck disable=SC2154 # _glo_current_arg set by `eval` above
   case $_glo_current_arg in --?*) ;; *)
@@ -458,7 +477,7 @@ get_medium_opts() {
     echo '{'
     get_medium_opts "$@"
     eval unset _gmo_recursed \
-               _gmo_opt_spec _gmo_opt_index _gmo_opt_name \
+               _gmo_opt_spec _gmo_opt_index _gmo_opt_subindex _gmo_opt_name \
                _gmo_current_arg _gmo_matched_opt _gmo_opt_arg \
          \; echo \\\} \; return $?
   fi
@@ -475,8 +494,14 @@ get_medium_opts() {
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
-  # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
-  _gmo_opt_index="${1%%:*}"; shift
+  _gmo_opt_index="$1"
+  _gmo_opt_subindex=''
+  case $_gmo_opt_index in *:*)
+    # NOTE: For `yash`, OPTIND has the format 'ARG_INDEX[:CHAR_INDEX]'
+    _gmo_opt_index="${1%%:*}"
+    _gmo_opt_subindex="${1#*:}"
+  ;; esac
+  shift
 
   if [ ! "${1:-}" ]; then
     echo "echo 'missing getopts output variable name' >&2"
@@ -485,9 +510,13 @@ get_medium_opts() {
   fi
   _gmo_opt_name="$1"; shift
 
-  if ! is_number "$_gmo_opt_index"; then
+  if ! is_number "$_gmo_opt_index" \
+    || { [ -n "$_gmo_opt_subindex" ] && ! is_number "$_gmo_opt_subindex"; }
+  then
     # shellcheck disable=SC2312 # chance of `escape` failing is negligible
-    echo "echo \"$(escape "$_gmo_opt_index") is not a valid number\" >&2"
+    echo "echo" \
+         "\"$(escape "${_gmo_opt_index}${_gmo_opt_subindex:+":$_gmo_opt_subindex"}")" \
+         "is not a valid number\" >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
   fi
@@ -504,6 +533,15 @@ get_medium_opts() {
   fi
 
   eval "_gmo_current_arg=\"\$$_gmo_opt_index\""
+  if [ -n "$_gmo_opt_subindex" ] \
+    && [ "$_gmo_opt_subindex" -ge "${#_gmo_current_arg}" ]
+  then
+    # NOTE: `yash` sometimes increments the CHAR_INDEX component of OPTIND
+    #       out of bounds, rather than incrementing the ARG_INDEX component,
+    #       after parsing a short option with `getopts`.
+    _gmo_opt_index=$((_gmo_opt_index + 1))
+    eval "_gmo_current_arg=\"\$$_gmo_opt_index\""
+  fi
 
   # shellcheck disable=SC2154 # _gmo_current_arg set by `eval` above
   case $_gmo_current_arg in -*) ;; *)
