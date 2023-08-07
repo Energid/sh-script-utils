@@ -364,23 +364,23 @@ test_opt_parser_def() {
   assertFalse 'empty long-opt spec name' 'eval "$(opt_parser_def -l "")"'
 
   assertEquals 'short options only' \
-    "getopts ab:c opt -a -b x -c 1" \
+    "{ getopts ab:c opt -a -b x -c 1; }" \
     "$(opt_parser_def 'ab:c' opt -a -b x -c 1)"
 
   assertEquals 'medium options only' \
-    "$(printf '%s || %s' \
+    "$(printf '{ %s || %s; }' \
               'eval "$(get_medium_opts '\''ab cd: ef'\'' "$OPTIND" opt -ab -cd x -ef 1)"' \
               'getopts : opt -ab -cd x -ef 1')" \
     "$(opt_parser_def -m 'ab cd: ef' ':' opt -ab -cd x -ef 1)"
 
   assertEquals 'long options only' \
-    "$(printf '%s || %s' \
+    "$(printf '{ %s || %s; }' \
               'eval "$(get_long_opts '\''abc def: ghi'\'' "$OPTIND" opt --abc --def x --ghi 1)"' \
               'getopts : opt --abc --def x --ghi 1')" \
     "$(opt_parser_def -l 'abc def: ghi' ':' opt --abc --def x --ghi 1)"
 
   assertEquals 'all option types' \
-    "$(printf '%s || %s || %s' \
+    "$(printf '{ %s || %s || %s; }' \
               'eval "$(get_long_opts '\''abc def:'\'' "$OPTIND" opt -lx -gh foo --def bar)"' \
               'eval "$(get_medium_opts '\''gh: ij'\'' "$OPTIND" opt -lx -gh foo --def bar)"' \
               'getopts :kl: opt -lx -gh foo --def bar')" \

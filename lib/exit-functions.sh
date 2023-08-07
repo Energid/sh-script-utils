@@ -29,6 +29,8 @@ register_exit_handler() {
 #   run when that function returns.
 #
 enable_exit_handlers() {
+  echo "{"
+
   if [ $# -gt 0 ]; then
     echo "echo \"extra argument(s)\" 2>&1"
     echo "false"
@@ -39,6 +41,8 @@ enable_exit_handlers() {
     echo "trap 'exit \$?' INT HUP QUIT TERM"
     echo "__EXIT_HANDLERS_ENABLED=1"
   fi
+
+  echo "}"
 }
 
 #

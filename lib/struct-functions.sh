@@ -121,6 +121,8 @@ struct_def() {
     echo "false"; return
   fi
 
+  echo "{"
+
   # store field names in 'struct_$name' variable;
   # this variable is also used to test for the structure's existence
   echo "${_struct_def_scope:+$_struct_def_scope }struct_${_struct_def_name}='$_struct_def_field_list'"
@@ -136,6 +138,8 @@ struct_def() {
     escape_var _struct_def_field_value
     echo "${_struct_def_scope:+$_struct_def_scope }struct_${_struct_def_name}_${_struct_def_field_name}=$_struct_def_field_value"
   done
+
+  echo "}"
 }
 
 #

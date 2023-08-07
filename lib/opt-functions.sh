@@ -271,11 +271,12 @@ build_opt_specs() {
 get_long_opts() {
   if [ ! "${_glo_recursed:-}" ]; then
     _glo_recursed=1
+    echo '{'
     get_long_opts "$@"
     eval unset _glo_recursed \
                _glo_opt_spec _glo_opt_index _glo_opt_name \
                _glo_current_arg _glo_matched_opt _glo_opt_arg \
-         \; return $?
+         \; echo \\\} \; return $?
   fi
 
   if [ ! "${1:-}" ]; then
@@ -454,11 +455,12 @@ get_long_opts() {
 get_medium_opts() {
   if [ ! "${_gmo_recursed:-}" ]; then
     _gmo_recursed=1
+    echo '{'
     get_medium_opts "$@"
     eval unset _gmo_recursed \
                _gmo_opt_spec _gmo_opt_index _gmo_opt_name \
                _gmo_current_arg _gmo_matched_opt _gmo_opt_arg \
-         \; return $?
+         \; echo \\\} \; return $?
   fi
 
   if [ ! "${1:-}" ]; then
@@ -533,7 +535,6 @@ get_medium_opts() {
       fi
       ;;
     *)
-      # unrecognized option
       echo "false"; return
       ;;
   esac
@@ -596,12 +597,24 @@ get_medium_opts() {
 #   parse_args -h
 #
 opt_parser_def() {
+  if [ ! "${_opd_recursed:-}" ]; then
+    _opd_recursed=1
+    printf '{ '
+    opt_parser_def "$@"
+    eval unset _opd_recursed \
+               _opd_long_opt_spec _opd_medium_opt_spec _opd_short_opt_spec \
+               _opd_escaped_opt_name _opd_escaped_args \
+               _opd_escaped_short_opt_spec \
+               _opd_escaped_medium_opt_spec \
+               _opd_escaped_long_opt_spec \
+         \; printf \"\; \}\" \; return $?
+  fi
+
   _opd_long_opt_spec=''
   _opd_medium_opt_spec=''
   while true; do
     case ${1:-} in
       -l) if [ ! "${2:-}" ]; then
-            unset _opd_long_opt_spec _opd_medium_opt_spec
             echo "echo \"option '-l' requires an argument\" >&2"
             echo "return 2 2>/dev/null || exit 2"
             return
@@ -611,7 +624,6 @@ opt_parser_def() {
           ;;
 
       -m) if [ ! "${2:-}" ]; then
-            unset _opd_long_opt_spec _opd_medium_opt_spec
             echo "echo \"option '-m' requires an argument\" >&2"
             echo "return 2 2>/dev/null || exit 2"
             return
@@ -626,7 +638,6 @@ opt_parser_def() {
   done
 
   if [ ! "${1:-}" ]; then
-    unset _opd_long_opt_spec _opd_medium_opt_spec
     echo "echo 'missing short option specification' >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
@@ -634,7 +645,6 @@ opt_parser_def() {
   _opd_short_opt_spec="$1"; shift
 
   if [ ! "${1:-}" ]; then
-    unset _opd_long_opt_spec _opd_medium_opt_spec _opd_short_opt_spec
     echo "echo 'missing getopts output variable name' >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
@@ -673,10 +683,4 @@ opt_parser_def() {
       "$_opd_escaped_short_opt_spec" \
       "$_opd_escaped_opt_name" \
       "$_opd_escaped_args"
-
-  unset _opd_long_opt_spec _opd_medium_opt_spec _opd_short_opt_spec \
-        _opd_escaped_opt_name _opd_escaped_args \
-        _opd_escaped_short_opt_spec \
-        _opd_escaped_medium_opt_spec \
-        _opd_escaped_long_opt_spec
 }
