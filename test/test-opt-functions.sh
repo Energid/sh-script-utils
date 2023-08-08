@@ -370,28 +370,330 @@ test_opt_parser_def() {
   assertFalse 'missing long-opt spec name' 'eval "$(opt_parser_def -l)"'
   assertFalse 'empty long-opt spec name' 'eval "$(opt_parser_def -l "")"'
 
-  assertEquals 'short options only' \
-    '{ eval "$(get_short_opts ab:c opt -a -b x -c 1)"; }' \
-    "$(opt_parser_def 'ab:c' opt -a -b x -c 1)"
+  build_opt_specs \
+    -l _test_opd_long_opts \
+    -m _test_opd_medium_opts \
+    _test_opd_short_opts \
+    'a' 'b:' 'am' 'bm:' '(a-long)' '(b-long):'
 
-  assertEquals 'medium options only' \
-    "$(printf '{ %s || %s; }' \
-              'eval "$(get_medium_opts '\''ab cd: ef'\'' "$OPTIND" opt -ab -cd x -ef 1)"' \
-              'eval "$(get_short_opts : opt -ab -cd x -ef 1)"')" \
-    "$(opt_parser_def -m 'ab cd: ef' ':' opt -ab -cd x -ef 1)"
+  _test_opd_make_parser() {
+    _test_opd_opt_parser=$(opt_parser_def \
+      -l "$_test_opd_long_opts" \
+      -m "$_test_opd_medium_opts" \
+      "$_test_opd_short_opts" \
+      _test_opd_opt \
+      "$@"
+    )
+  }
 
-  assertEquals 'long options only' \
-    "$(printf '{ %s || %s; }' \
-              'eval "$(get_long_opts '\''abc def: ghi'\'' "$OPTIND" opt --abc --def x --ghi 1)"' \
-              'eval "$(get_short_opts : opt --abc --def x --ghi 1)"')" \
-    "$(opt_parser_def -l 'abc def: ghi' ':' opt --abc --def x --ghi 1)"
+  eval "$(reset_opt_index)"
+  set -- 0
+  _test_opd_make_parser "$@"
+  _test_opd_case='start -> non-opt'
+  ! eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
 
-  assertEquals 'all option types' \
-    "$(printf '{ %s || %s || %s; }' \
-              'eval "$(get_long_opts '\''abc def:'\'' "$OPTIND" opt -lx -gh foo --def bar)"' \
-              'eval "$(get_medium_opts '\''gh: ij'\'' "$OPTIND" opt -lx -gh foo --def bar)"' \
-              'eval "$(get_short_opts :kl: opt -lx -gh foo --def bar)"')" \
-    "$(opt_parser_def -l 'abc def:' -m 'gh: ij' ':kl:' opt -lx -gh foo --def bar)"
+  eval "$(reset_opt_index)"
+  set -- -x
+  _test_opd_make_parser "$@"
+  _test_opd_case='start -> invalid short opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" '?' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" 'x' "${OPTARG:-}"
+
+  eval "$(reset_opt_index)"
+  set -- --ax-long
+  _test_opd_make_parser "$@"
+  _test_opd_case='start -> invalid long opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" '?' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" 'ax-long' "${OPTARG:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -a
+  _test_opd_make_parser "$@"
+  _test_opd_case='start -> short opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -am
+  _test_opd_make_parser "$@"
+  _test_opd_case='start -> medium opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- --a-long
+  _test_opd_make_parser "$@"
+  _test_opd_case='start -> long opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -a 0
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> short opt] -> non-opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [short opt -> non-opt]'
+  ! eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+
+  eval "$(reset_opt_index)"
+  set -- -a -b1
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> short opt] -> short opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [short opt -> short opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '1' "${OPTARG:-}"
+
+  # NOTE: `posh` cannot parse combined short options with its `getopts`
+  if ! command ps -p $$ 2>/dev/null | grep -q 'posh'; then
+    eval "$(reset_opt_index)"
+    set -- -ab1
+    _test_opd_make_parser "$@"
+    _test_opd_case='[start -> short opt] -> joined short opt'
+    eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+    assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+    _test_opd_case='start -> [short opt -> joined short opt]'
+    eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+    assertEquals "$_test_opd_case: opt" 'b' "${_test_opd_opt:-}"
+    assertEquals "$_test_opd_case: OPTARG" '1' "${OPTARG:-}"
+  fi
+
+  eval "$(reset_opt_index)"
+  set -- -a -am
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> short opt] -> medium opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [short opt -> medium opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -a --a-long
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> short opt] -> long opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [short opt -> long opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -b 1 0
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> short optarg] -> non-opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '1' "${OPTARG:-}"
+  _test_opd_case='start -> [short optarg -> non-opt]'
+  ! eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+
+  eval "$(reset_opt_index)"
+  set -- -b 1 -a
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> short optarg] -> short opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '1' "${OPTARG:-}"
+  _test_opd_case='start -> [short optarg -> short opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -b 1 -am
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> short optarg] -> medium opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '1' "${OPTARG:-}"
+  _test_opd_case='start -> [short optarg -> medium opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -b 1 --a-long
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> short optarg] -> long opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '1' "${OPTARG:-}"
+  _test_opd_case='start -> [short optarg -> long opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -am 0
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> medium opt] -> non-opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [medium opt -> non-opt]'
+  ! eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+
+  eval "$(reset_opt_index)"
+  set -- -am -a
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> medium opt] -> short opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [medium opt -> short opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -am -bm 2
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> medium opt] -> medium opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [medium opt -> medium opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'bm' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '2' "${OPTARG:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -am --a-long
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> medium opt] -> long opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [medium opt -> long opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -bm 2 0
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> medium optarg] -> non-opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'bm' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '2' "${OPTARG:-}"
+  _test_opd_case='start -> [medium optarg -> non-opt]'
+  ! eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+
+  eval "$(reset_opt_index)"
+  set -- -bm 2 -a
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> medium optarg] -> short opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'bm' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '2' "${OPTARG:-}"
+  _test_opd_case='start -> [medium optarg -> short opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -bm 2 -am
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> medium optarg] -> medium opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'bm' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '2' "${OPTARG:-}"
+  _test_opd_case='start -> [medium optarg -> medium opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- -bm 2 --a-long
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> medium optarg] -> long opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'bm' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '2' "${OPTARG:-}"
+  _test_opd_case='start -> [medium optarg -> long opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- --a-long 0
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> long opt] -> non-opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [long opt -> non-opt]'
+  ! eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+
+  eval "$(reset_opt_index)"
+  set -- --a-long -a
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> long opt] -> short opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [long opt -> short opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- --a-long -am
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> long opt] -> medium opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [long opt -> medium opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- --a-long --b-long 3
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> long opt] -> long opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+  _test_opd_case='start -> [long opt -> long opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b-long' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '3' "${OPTARG:-}"
+
+  eval "$(reset_opt_index)"
+  set -- --b-long 3 0
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> long optarg] -> non-opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b-long' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '3' "${OPTARG:-}"
+  _test_opd_case='start -> [long optarg -> non-opt]'
+  ! eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+
+  eval "$(reset_opt_index)"
+  set -- --b-long 3 -a
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> long optarg] -> short opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b-long' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '3' "${OPTARG:-}"
+  _test_opd_case='start -> [long optarg -> short opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- --b-long 3 -am
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> long optarg] -> medium opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b-long' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '3' "${OPTARG:-}"
+  _test_opd_case='start -> [long optarg -> medium opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'am' "${_test_opd_opt:-}"
+
+  eval "$(reset_opt_index)"
+  set -- --b-long 3 --a-long
+  _test_opd_make_parser "$@"
+  _test_opd_case='[start -> long optarg] -> long opt'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'b-long' "${_test_opd_opt:-}"
+  assertEquals "$_test_opd_case: OPTARG" '3' "${OPTARG:-}"
+  _test_opd_case='start -> [long optarg -> long opt]'
+  eval "$_test_opd_opt_parser" || fail "$_test_opd_case: parse"
+  assertEquals "$_test_opd_case: opt" 'a-long' "${_test_opd_opt:-}"
+
+  unset _test_opd_long_opts _test_opd_medium_opts _test_opd_short_opts \
+        _test_opd_opt_parser _test_opd_make_parser _test_opd_opt _test_opd_case
 }
 
 if [ "${ZSH_VERSION:-}" ]; then
