@@ -10,12 +10,12 @@ include common-functions.sh
 # Usage: build_opt_specs [-l LONG_NAME] [-m MEDIUM_NAME] SHORT_NAME OPT_DEF...
 #
 # Generate short-option specification from OPT_DEFs in $SHORT_NAME
-# for use with `getopts`. With -l, also generate long-option
-# specification in $LONG_NAME for use with `get_long_opts`. With -m,
-# also generate medium-option specification in $MEDIUM_NAME for use
-# with `get_medium_opts`. The variables SHORT_NAME, MEDIUM_NAME (with -m),
-# and LONG_NAME (with -l) will be created as global shell variables
-# if they do not already exist.
+# for use with `getopts` or `get_short_opts`. With -l, also generate
+# long-option specification in $LONG_NAME for use with `get_long_opts`.
+# With -m, also generate medium-option specification in $MEDIUM_NAME for
+# use with `get_medium_opts`. The variables SHORT_NAME, MEDIUM_NAME
+# (with -m), and LONG_NAME (with -l) will be created as global shell
+# variables if they do not already exist.
 #
 # Each OPT_DEF defines a recognized short/medium option and/or long
 # option. It must be in the form 'SHORT', 'MEDIUM', '(LONG)', 'SHORT(LONG)',
@@ -192,17 +192,17 @@ build_opt_specs() {
 # Parse next long option from ARGs using both OPT_SPEC and OPT_INDEX
 # and store result in $SHORT_OPT.
 #
-# This function expects that `getopts` be called after it with a short-option
-# specification from `build_opt_specs`, that OPT_INDEX be the value of $OPTIND
-# from the caller's context, that $SHORT_OPT be the variable in which `getopts`
-# will place its output, and that ARGs be the same positional arguments that
-# will be passed to `getopts`. Also OPT_SPEC must be a long-option specification
-# from `build_opt_specs`.
+# This function expects that `get_short_opts` be called after it with
+# a short-option specification from `build_opt_specs`, that OPT_INDEX be
+# the value of $OPTIND from the caller's context, that $SHORT_OPT be the
+# variable in which `get_short_opts` will place its output, and that ARGs
+# be the same positional arguments that will be passed to `get_short_opts`.
+# Also OPT_SPEC must be a long-option specification from `build_opt_specs`.
 #
 # If SHORT_OPT does not exist, then it will be created as a global shell
 # variable.
 #
-# If the next option processed by `getopts` would be a long option in OPT_SPEC
+# If the next option processed by `get_short_opts` would be a long option in OPT_SPEC
 # with any required argument present, then this function will set $SHORT_OPT
 # to the name of the option and OPTARG to any argument for the option.
 # Else, if the next processed option would be a recognized long option with a
@@ -224,9 +224,10 @@ build_opt_specs() {
 #
 #     build_opt_specs -l long_opts short_opts 'l(level):' 'c(category):' 'h(help)'
 #
-#     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
+#     eval "$(reset_opt_index)"
+#     opt='' bad_opt='' no_optarg=0
 #     while eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")" \
-#           && getopts "$short_opts" opt "$@" \
+#           || eval "$(get_short_opts "$short_opts" opt "$@")"
 #     do
 #       case $opt in
 #         l|level)    level=$OPTARG    ;;
@@ -236,7 +237,7 @@ build_opt_specs() {
 #         :) bad_opt=$OPTARG ; no_optarg=1; break ;;
 #         *) bad_opt=$OPTARG ; break ;;
 #       esac
-#     done; shift $((OPTIND - 1)); OPTIND=1
+#     done; shift $((OPTIND - 1))
 #
 #     # check bad_opt/no_optarg and handle remaining (non-option) arguments here...
 #   }
@@ -252,12 +253,16 @@ build_opt_specs() {
 #
 # Note:
 #   See `opt_parser_def` for a convenient code generator for
-#   `get_long_opts`, `get_medium_opts`, and `getopts`.
+#   `get_long_opts`, `get_medium_opts`, and `get_short_opts`.
 #
 # Implementation Notes:
-#   The reason this function must be called before `getopts`, rather than it calling
-#   `getopts` itself, is to avoid a `dash` limitation in which `getopts` misbehaves
-#   when called through a wrapper function.
+#   The reason this function must be called before `get_short_opts`, rather
+#   than it calling `get_short_opts` itself, is to avoid a `dash` limitation
+#   in which `getopts` misbehaves when called through a wrapper function.
+#
+#   The reason this function must be called before `get_short_opts`, rather
+#   than before `getopts`, is to ensure changes to `OPTIND` are properly
+#   coordinated between this functin and `getopts`.
 #
 #   The reason the output of this function must be passed to `eval`, rather than
 #   the function called directly, is to avoid a `dash` limitation where `getopts`
@@ -323,6 +328,17 @@ get_long_opts() {
     echo "echo \"$(escape "$_glo_opt_name") is not a valid identifier\" >&2"
     echo "return 2 2>/dev/null || exit 2"
     return
+  fi
+
+  if [ "${ZSH_VERSION:-}" ]; then
+    if [ "$_glo_opt_index" -eq 0 ]; then
+      # `zsh` treats an OPTIND of `0` the same as one of `1`, except the
+      # former commands `getopts` to reset its internal state
+      _glo_opt_index=1
+    else
+      # apply any `zsh` OPTIND correction from `get_short_opts`
+      _glo_opt_index=$((_glo_opt_index + ${__ZSH_GETOPTS_OPTIND_OFFSET:-0}))
+    fi
   fi
 
   if [ "$_glo_opt_index" -gt $# ]; then
@@ -391,6 +407,11 @@ get_long_opts() {
   esac
 
   echo "$_glo_opt_name='$_glo_matched_opt'"
+
+  if [ "${ZSH_VERSION:-}" ]; then
+    # clear `zsh` OPTIND correction
+    echo '__ZSH_GETOPTS_OPTIND_OFFSET=0'
+  fi
 }
 
 #
@@ -399,24 +420,25 @@ get_long_opts() {
 # Parse next medium option from ARGs using both OPT_SPEC and OPT_INDEX
 # and store result in $SHORT_OPT.
 #
-# This function expects that `getopts` be called after it with a short-option
-# specification from `build_opt_specs`, that OPT_INDEX be the value of $OPTIND
-# from the caller's context, $SHORT_OPT be the variable in which `getopts` will
-# place its output, and that ARGs be the same positional arguments that will be
-# passed to `getopts`. Also OPT_SPEC must be a medium-option specification
-# from `build_opt_specs`.
+# This function expects that `get_short_opts` be called after it with
+# a short-option specification from `build_opt_specs`, that OPT_INDEX
+# be the value of $OPTIND from the caller's context, $SHORT_OPT be the
+# variable in which `get_short_opts` will place its output, and that ARGs
+# be the same positional arguments that will be passed to `get_short_opts`.
+# Also OPT_SPEC must be a medium-option specification from `build_opt_specs`.
 #
 # If SHORT_OPT does not exist, then it will be created as a global shell
 # variable.
 #
-# If the next argument processed by `getopts` would be a medium option in OPT_SPEC
-# with any required argument present, then this function will set $SHORT_OPT
-# to the name of the option, set OPTARG to any argument for the option, and
-# increment OPTIND appropriately. Else, if the next processed argument would
-# be a recognized medium option with a missing required argument, then $SHORT_OPT
-# will be set to ':', OPTARG will be set to the option name, and OPTIND will be
-# incremented. Else (if the next processed argument would be a non-option or
-# an option not in OPT_SPEC), then this function will return failure.
+# If the next argument processed by `get_short_opts` would be a medium option
+# in OPT_SPEC with any required argument present, then this function will
+# set $SHORT_OPT to the name of the option, set OPTARG to any argument for
+# the option, and increment OPTIND appropriately. Else, if the next processed
+# argument would be a recognized medium option with a missing required argument,
+# then $SHORT_OPT will be set to ':', OPTARG will be set to the option name,
+# and OPTIND will be incremented. Else (if the next processed argument would
+# be a non-option or an option not in OPT_SPEC), then this function will
+# return failure.
 #
 # This function recognizes any IFS character as a valid delimiter between a medium
 # option and its argument.
@@ -430,10 +452,11 @@ get_long_opts() {
 #     build_opt_specs -l long_opts -m medium_opts short_opts \
 #                     'id(input-dir):' 'od(output-dir):' 'h(help)'
 #
-#     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
+#     eval "$(reset_opt_index)"
+#     opt='' bad_opt='' no_optarg=0
 #     while eval "$(get_long_opts "$long_opts" "$OPTIND" opt "$@")" \
 #           || eval "$(get_medium_opts "$medium_opts" "$OPTIND" opt "$@")" \
-#           || getopts "$short_opts" opt "$@"
+#           || eval "$(get_short_opts "$short_opts" opt "$@")"
 #     do
 #       case $opt in
 #         id|input-dir)  input_dir=$OPTARG  ;;
@@ -443,7 +466,7 @@ get_long_opts() {
 #         :) bad_opt=$OPTARG ; no_optarg=1; break ;;
 #         *) bad_opt=$OPTARG ; break ;;
 #       esac
-#     done; shift $((OPTIND - 1)); OPTIND=1
+#     done; shift $((OPTIND - 1))
 #
 #     # check bad_opt/no_optarg and handle remaining (non-option) arguments here...
 #   }
@@ -459,9 +482,17 @@ get_long_opts() {
 #
 # Note:
 #   See `opt_parser_def` for a convenient code generator for
-#   `get_long_opts`, `get_medium_opts`, and `getopts`.
+#   `get_long_opts`, `get_medium_opts`, and `get_short_opts`.
 #
 # Implementation Notes:
+#   The reason this function must be called before `get_short_opts`, rather
+#   than it calling `get_short_opts` itself, is to avoid a `dash` limitation
+#   in which `getopts` misbehaves when called through a wrapper function.
+#
+#   The reason this function must be called before `get_short_opts`, rather
+#   than before `getopts`, is to ensure changes to `OPTIND` are properly
+#   coordinated between this functin and `getopts`.
+#
 #   The reason the output of this function must be passed to `eval`, rather than
 #   the function called directly, is to avoid a `dash` limitation where `getopts`
 #   ignores any change to `OPTIND` that was a side effect of a function call.
@@ -528,6 +559,17 @@ get_medium_opts() {
     return
   fi
 
+  if [ "${ZSH_VERSION:-}" ]; then
+    if [ "$_gmo_opt_index" -eq 0 ]; then
+      # `zsh` treats an OPTIND of `0` the same as one of `1`, except the
+      # former commands `getopts` to reset its internal state
+      _gmo_opt_index=1
+    else
+      # apply any `zsh` OPTIND correction from `get_short_opts`
+      _gmo_opt_index=$((_gmo_opt_index + ${__ZSH_GETOPTS_OPTIND_OFFSET:-0}))
+    fi
+  fi
+
   if [ "$_gmo_opt_index" -gt $# ]; then
     echo "false"; return
   fi
@@ -578,14 +620,124 @@ get_medium_opts() {
   esac
 
   echo "$_gmo_opt_name='$_gmo_matched_opt'"
+
+  if [ "${ZSH_VERSION:-}" ]; then
+    # clear `zsh` OPTIND correction
+    echo '__ZSH_GETOPTS_OPTIND_OFFSET=0'
+  fi
+}
+
+#
+# Usage: eval "$(get_short_opts OPT_SPEC SHORT_OPT ARG..)"
+#
+# Parse next short option from ARGs using OPT_SPEC and store result in $SHORT_OPT.
+#
+# This function wraps the `getopts` shell builtin and makes it compatible
+# with the `get_long_opts` and `get_medium_opts` functions. See `getopts`
+# documentation for how OPT_SPEC, SHORT_OPT, and ARGs are processed.
+#
+# Implementation Notes:
+#   The reason the output of this function must be passed to `eval`, rather than
+#   the function called directly, is to avoid a `dash` limitation where `getopts`
+#   ignores any change to `OPTIND` that was a side effect of a function call.
+#
+#   The raison d'etre of this function is to work around the following unusual
+#   behavior in the `zsh` implementation of the `getopts` builtin:
+#     - $OPTIND must be set to `0`, rather than the `1` specified by POSIX,
+#       to reset the internal state of `getopts`.
+#     - $OPTIND is incremented before processing a non-argumented option
+#       and after processing an argumented option, whereas other shells
+#       (except `yash`) increment $OPTIND after processing any option.
+#     - $OPTIND cannot be reliably adjusted after `getopts` has started
+#       parsing a sequence of non-argumented options, whereas other shells
+#       are more forgiving of arbitrary $OPTIND adjustments.
+#
+get_short_opts() {
+  echo "{"
+
+  if [ "${ZSH_VERSION:-}" ] && is_valid_identifier "${2:-\?}"; then
+    _gso_zsh_opt="$2"
+
+         # clear any OPTIND correction
+    echo '__ZSH_GETOPTS_OPTIND_OFFSET=0'
+         # save current OPTIND so we can know if `getopts` increments it
+    echo '__ZSH_GETOPTS_PREV_OPTIND=$OPTIND'
+  fi
+
+  # call `getopts` with given parameters
+  printf 'getopts %s' "$(escape "$@")"
+
+  if [ -z "${_gso_zsh_opt:-}" ]; then
+    echo ''
+  else
+    echo ' && \'
+          # if `getopts` did not increment $OPTIND
+          # (or $OPTIND was incremented from `0` to `1`)...
+    echo 'if [ "$OPTIND" -eq "$__ZSH_GETOPTS_PREV_OPTIND" ] \'
+    echo '     || [ "$__ZSH_GETOPTS_PREV_OPTIND" -eq 0 ]'
+          # then it must have parsed a non-argumented option
+    echo 'then'
+            # add the newly parsed option to the list of short options already
+            # parsed for the argument with index $OPTIND
+    echo "  case \${$_gso_zsh_opt} in"
+    echo '    \?|:)'
+    echo '       __ZSH_GETOPTS_PARSED_OPTS="${__ZSH_GETOPTS_PARSED_OPTS:-}${OPTARG}"'
+    echo '      ;;'
+    echo '    *)'
+    echo "      __ZSH_GETOPTS_PARSED_OPTS=\"\${__ZSH_GETOPTS_PARSED_OPTS:-}\${$_gso_zsh_opt}\""
+    echo '      ;;'
+    echo '  esac'
+            # if the argument with index $OPTIND contains nothing but one or
+            # more non-argumented short options and `getopts` has parsed all
+            # those options...
+    echo '  if eval test "-${__ZSH_GETOPTS_PARSED_OPTS:-}" = "\${$OPTIND}"; then'
+              # clear parsed option tracking
+    echo "    __ZSH_GETOPTS_PARSED_OPTS=''"
+              # set OPTIND correction so `get_long_opts` or `get_medium_opts`
+              # can process the next argument
+    echo '    __ZSH_GETOPTS_OPTIND_OFFSET=1'
+    echo '  fi'
+          # else `getopts` must have parsed an argumented option
+    echo 'else'
+            # clear parsed option tracking
+    echo "  __ZSH_GETOPTS_PARSED_OPTS=''"
+    echo 'fi'
+  fi
+
+  echo "}"
+
+  unset _gso_zsh_opt
+}
+
+#
+# Usage: eval "$(reset_opt_index)"
+#
+# Reset internal state of `get_long_opts`, `get_medium_opts`, and
+# `get_short_opts` to prepare functions to parse new set of arguments.
+#
+# Implementation Notes:
+#   The reason the output of this function must be passed to `eval`, rather than
+#   the function called directly, is to avoid a `dash` limitation where `getopts`
+#   ignores any change to `OPTIND` that was a side effect of a function call.
+#
+reset_opt_index() {
+  echo '{'
+  if [ -z "${ZSH_VERSION:-}" ]; then
+    echo 'OPTIND=1'
+  else
+    echo 'OPTIND=0'
+    echo '__ZSH_GETOPTS_OPTIND_OFFSET=0'
+    echo "__ZSH_GETOPTS_PARSED_OPTS=''"
+  fi
+  echo '}'
 }
 
 #
 # Usage: opt_parser_def [-l LONG_OPT_SPEC] [-m MEDIUM_OPT_SPEC]
 #                       SHORT_OPT_SPEC SHORT_OPT ARGS...
 #
-# Generate evaluable code to call `getopts` with given short-option specification
-# SHORT_OPT_SPEC, output variable SHORT_OPT, and positional ARGs.
+# Generate evaluable code to call `get_short_opts` with given short-option
+# specification SHORT_OPT_SPEC, output variable SHORT_OPT, and positional ARGs.
 #
 # With -l, also generate code to call `get_long_opts` with given long-option
 # specification LONG_OPT_SPEC, output variable SHORT_OPT, and positional ARGs.
@@ -610,7 +762,8 @@ get_medium_opts() {
 #     opt_parser="$(opt_parser_def -l "$long_opts" -m "$medium_opts" \
 #                                  "$short_opts" opt "$@")"
 #
-#     OPTIND=1 OPTARG='' opt='' bad_opt='' no_optarg=0
+#     eval "$(reset_opt_index)"
+#     opt='' bad_opt='' no_optarg=0
 #     while eval "opt_parser"; do
 #       case $opt in
 #         id|input-dir)  input_dir=$OPTARG  ;;
@@ -620,7 +773,7 @@ get_medium_opts() {
 #         :) bad_opt=$OPTARG ; no_optarg=1; break ;;
 #         *) bad_opt=$OPTARG ; break ;;
 #       esac
-#     done; shift $((OPTIND - 1)); OPTIND=1
+#     done; shift $((OPTIND - 1))
 #
 #     # check bad_opt/no_optarg and handle remaining (non-option) arguments here...
 #   }
@@ -717,8 +870,8 @@ opt_parser_def() {
   _opd_escaped_short_opt_spec="$_opd_short_opt_spec"
   escape_var _opd_escaped_short_opt_spec
 
-  printf "getopts %s %s %s" \
-      "$_opd_escaped_short_opt_spec" \
-      "$_opd_escaped_opt_name" \
-      "$_opd_escaped_args"
+  printf "eval \"\$(get_short_opts %s %s %s)\"" \
+    "$_opd_escaped_short_opt_spec" \
+    "$_opd_escaped_opt_name" \
+    "$_opd_escaped_args"
 }
